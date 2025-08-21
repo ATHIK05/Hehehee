@@ -161,10 +161,10 @@ export default function Header({ title, sidebarCollapsed }: HeaderProps) {
                   <p className="text-xs text-slate-500">Switch to dark theme</p>
                 </div>
                 <input type="checkbox" className="rounded" />
-                <h3 className="text-lg font-medium text-slate-900">{user?.profile.name}</h3>
-                <p className="text-sm text-slate-500">{user?.email}</p>
-                <p className="text-xs text-slate-400 capitalize">{user?.userType} Access</p>
-          
+              </div>
+            </div>
+          </div>
+
           <div>
             <h3 className="text-lg font-medium text-slate-900 mb-4">System Preferences</h3>
             <div className="space-y-4">
@@ -172,7 +172,7 @@ export default function Header({ title, sidebarCollapsed }: HeaderProps) {
                 <label className="block text-sm font-medium text-slate-700 mb-2">Default Currency</label>
                 <select className="w-full px-3 py-2 border border-slate-300 rounded-lg">
                   <option value="INR">Indian Rupee (₹)</option>
-                  defaultValue={user?.profile.name}
+                  <option value="USD">US Dollar ($)</option>
                   <option value="EUR">Euro (€)</option>
                 </select>
               </div>
@@ -180,7 +180,7 @@ export default function Header({ title, sidebarCollapsed }: HeaderProps) {
                 <label className="block text-sm font-medium text-slate-700 mb-2">Time Zone</label>
                 <select className="w-full px-3 py-2 border border-slate-300 rounded-lg">
                   <option value="IST">India Standard Time (IST)</option>
-                  defaultValue={user?.profile.phone}
+                  <option value="UTC">Coordinated Universal Time (UTC)</option>
                   <option value="EST">Eastern Standard Time (EST)</option>
                 </select>
               </div>
