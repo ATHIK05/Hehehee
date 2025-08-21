@@ -5,7 +5,14 @@ import { Inquiry } from '../types';
 import StatusBadge from '../components/ui/StatusBadge';
 import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
-import SkeletonLoader from '../components/ui/SkeletonLoader';
+import LoadingSpinner from '../components/ui/LoadingSpinner';
+import { 
+  getInquiries, 
+  updateInquiry, 
+  deleteInquiry, 
+  createOrder, 
+  generateOrderID 
+} from '../services/firebase';
 import { format } from 'date-fns';
 
 export default function Inquiries() {
@@ -15,74 +22,114 @@ export default function Inquiries() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterSource, setFilterSource] = useState<string>('all');
+  const [followUpNotes, setFollowUpNotes] = useState('');
 
   useEffect(() => {
-    // Mock data - replace with Firebase fetch
-    setTimeout(() => {
-      const mockInquiries: Inquiry[] = [
-        {
-          id: '1',
-          inquiryID: 'INQ001',
-          clientName: 'Alex Thompson',
-          requirementSummary: 'Wedding drone coverage for outdoor ceremony',
-          source: 'instagram',
-          city: 'Mumbai',
-          phoneNumber: '+91 9876543210',
-          createdAt: new Date(),
-          status: 'new'
-        },
-        {
-          id: '2',
-          inquiryID: 'INQ002',
-          clientName: 'Priya Sharma',
-          requirementSummary: 'Real estate property showcase video',
-          source: 'website',
-          city: 'Delhi',
-          phoneNumber: '+91 9876543211',
-          createdAt: new Date(),
-          status: 'contacted'
-        },
-        {
-          id: '3',
-          inquiryID: 'INQ003',
-          clientName: 'Rahul Gupta',
-          requirementSummary: 'Corporate event documentation',
-          source: 'referral',
-          city: 'Bangalore',
-          phoneNumber: '+91 9876543212',
-          createdAt: new Date(),
-          status: 'converted'
-        }
-      ];
-      setInquiries(mockInquiries);
-      setLoading(false);
-    }, 1000);
+    fetchInquiries();
   }, []);
+
+  const fetchInquiries = async () => {
+    try {
+      const inquiriesData = await getInquiries();
+      setInquiries(inquiriesData);
+    } catch (error) {
+      console.error('Error fetching inquiries:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredInquiries = inquiries.filter(inquiry => {
     const matchesSearch = inquiry.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          inquiry.phoneNumber.includes(searchTerm) ||
                          inquiry.inquiryID.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesFilter = filterStatus === 'all' || inquiry.status === filterStatus;
-    return matchesSearch && matchesFilter;
+    const matchesSource = filterSource === 'all' || inquiry.source === filterSource;
+    return matchesSearch && matchesFilter && matchesSource;
   });
 
-  const handleConvert = (inquiryId: string) => {
-    setInquiries(prev => prev.map(inquiry => 
-      inquiry.id === inquiryId ? { ...inquiry, status: 'converted' as const } : inquiry
-    ));
+  const handleConvert = async (inquiry: Inquiry) => {
+    try {
+      // Create order from inquiry
+      const orderID = generateOrderID();
+      await createOrder({
+        orderID,
+        clientName: inquiry.clientName,
+        phoneNumber: inquiry.phoneNumber,
+        city: inquiry.city,
+        requirementSummary: inquiry.requirementSummary,
+        status: 'new',
+        paymentStatus: 'pending',
+        amount: 0, // Will be updated later
+        packageType: 'basic'
+      });
+      
+      // Update inquiry status
+      await updateInquiry(inquiry.id, { status: 'converted' });
+      fetchInquiries();
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error('Error converting inquiry:', error);
+    }
   };
 
-  const handleMarkContacted = (inquiryId: string) => {
-    setInquiries(prev => prev.map(inquiry => 
-      inquiry.id === inquiryId ? { ...inquiry, status: 'contacted' as const } : inquiry
-    ));
+  const handleMarkContacted = async (inquiryId: string) => {
+    try {
+      await updateInquiry(inquiryId, { status: 'contacted' });
+      fetchInquiries();
+    } catch (error) {
+      console.error('Error updating inquiry:', error);
+    }
   };
 
-  const handleReject = (inquiryId: string) => {
-    setInquiries(prev => prev.map(inquiry => 
-      inquiry.id === inquiryId ? { ...inquiry, status: 'rejected' as const } : inquiry
-    ));
+  const handleReject = async (inquiryId: string) => {
+    try {
+      await updateInquiry(inquiryId, { status: 'rejected' });
+      fetchInquiries();
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error('Error rejecting inquiry:', error);
+    }
+  };
+
+  const handleUpdateFollowUp = async () => {
+    if (!selectedInquiry || !followUpNotes.trim()) return;
+    
+    try {
+      await updateInquiry(selectedInquiry.id, { 
+        followUpNotes: followUpNotes,
+        status: 'contacted'
+      });
+      fetchInquiries();
+      setFollowUpNotes('');
+    } catch (error) {
+      console.error('Error updating follow-up notes:', error);
+    }
+  };
+
+  const exportInquiries = () => {
+    const csvContent = [
+      ['Inquiry ID', 'Client Name', 'Phone', 'City', 'Source', 'Status', 'Date', 'Requirement'],
+      ...filteredInquiries.map(inquiry => [
+        inquiry.inquiryID,
+        inquiry.clientName,
+        inquiry.phoneNumber,
+        inquiry.city,
+        inquiry.source,
+        inquiry.status,
+        format(inquiry.createdAt, 'dd/MM/yyyy'),
+        inquiry.requirementSummary
+      ])
+    ].map(row => row.join(',')).join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `inquiries_${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
   };
 
   const getSourceIcon = (source: string) => {
@@ -97,11 +144,8 @@ export default function Inquiries() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-slate-900">New Inquiries</h1>
-        </div>
-        <SkeletonLoader rows={8} />
+      <div className="flex items-center justify-center h-64">
+        <LoadingSpinner size="lg" />
       </div>
     );
   }
@@ -110,7 +154,7 @@ export default function Inquiries() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-slate-900">New Inquiries Management</h1>
-        <Button variant="secondary" className="flex items-center">
+        <Button variant="secondary" className="flex items-center" onClick={exportInquiries}>
           <Download className="w-4 h-4 mr-2" />
           Export Inquiries
         </Button>
@@ -138,6 +182,17 @@ export default function Inquiries() {
           <option value="contacted">Contacted</option>
           <option value="converted">Converted</option>
           <option value="rejected">Rejected</option>
+        </select>
+        <select
+          value={filterSource}
+          onChange={(e) => setFilterSource(e.target.value)}
+          className="px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent"
+        >
+          <option value="all">All Sources</option>
+          <option value="instagram">Instagram</option>
+          <option value="website">Website</option>
+          <option value="whatsapp">WhatsApp</option>
+          <option value="referral">Referral</option>
         </select>
       </div>
 
@@ -248,6 +303,7 @@ export default function Inquiries() {
                         whileTap={{ scale: 0.9 }}
                         onClick={() => {
                           setSelectedInquiry(inquiry);
+                          setFollowUpNotes(inquiry.followUpNotes || '');
                           setIsModalOpen(true);
                         }}
                         className="text-blue-600 hover:text-blue-900 p-1 rounded-md hover:bg-blue-50 transition-colors"
@@ -268,7 +324,7 @@ export default function Inquiries() {
                         <motion.button
                           whileHover={{ scale: 1.1 }}
                           whileTap={{ scale: 0.9 }}
-                          onClick={() => handleConvert(inquiry.id)}
+                          onClick={() => handleConvert(inquiry)}
                           className="text-green-600 hover:text-green-900 p-1 rounded-md hover:bg-green-50 transition-colors"
                         >
                           <UserCheck className="w-4 h-4" />
@@ -319,6 +375,17 @@ export default function Inquiries() {
                 <label className="text-sm font-medium text-slate-700">City</label>
                 <p className="text-slate-900">{selectedInquiry.city}</p>
               </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700">Source</label>
+                <div className="flex items-center space-x-2">
+                  <span className="text-lg">{getSourceIcon(selectedInquiry.source)}</span>
+                  <span className="text-slate-900 capitalize">{selectedInquiry.source}</span>
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700">Date</label>
+                <p className="text-slate-900">{format(selectedInquiry.createdAt, 'dd MMM yyyy - hh:mm a')}</p>
+              </div>
             </div>
 
             <div>
@@ -334,20 +401,43 @@ export default function Inquiries() {
                 className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent"
                 rows={3}
                 placeholder="Add follow-up notes here..."
-                defaultValue={selectedInquiry.followUpNotes || ''}
+                value={followUpNotes}
+                onChange={(e) => setFollowUpNotes(e.target.value)}
               />
+              {followUpNotes !== (selectedInquiry.followUpNotes || '') && (
+                <Button 
+                  size="sm" 
+                  className="mt-2" 
+                  onClick={handleUpdateFollowUp}
+                >
+                  Save Notes
+                </Button>
+              )}
             </div>
+
+            {selectedInquiry.followUpNotes && (
+              <div>
+                <label className="text-sm font-medium text-slate-700">Previous Notes</label>
+                <p className="text-slate-900 bg-slate-50 p-3 rounded-lg mt-1">
+                  {selectedInquiry.followUpNotes}
+                </p>
+              </div>
+            )}
 
             <div className="flex justify-end space-x-3">
               <Button variant="secondary" onClick={() => setIsModalOpen(false)}>
                 Close
               </Button>
-              <Button variant="danger" onClick={() => handleReject(selectedInquiry.id)}>
-                Reject
-              </Button>
-              <Button onClick={() => handleConvert(selectedInquiry.id)}>
-                Convert to Order
-              </Button>
+              {selectedInquiry.status !== 'rejected' && (
+                <Button variant="danger" onClick={() => handleReject(selectedInquiry.id)}>
+                  Reject
+                </Button>
+              )}
+              {selectedInquiry.status !== 'converted' && (
+                <Button onClick={() => handleConvert(selectedInquiry)}>
+                  Convert to Order
+                </Button>
+              )}
             </div>
           </div>
         )}

@@ -188,6 +188,10 @@ export const updateVideoReview = async (reviewId: string, updates: Partial<Video
   });
 };
 
+export const deleteVideoReview = async (reviewId: string) => {
+  await deleteDoc(doc(db, 'videoReviews', reviewId));
+};
+
 // Pilot Applications
 export const createPilotApplication = async (applicationData: Omit<PilotApplication, 'id' | 'appliedDate'>) => {
   const docRef = await addDoc(collection(db, 'pilotApplications'), {
@@ -288,9 +292,15 @@ export const updateCancellation = async (cancellationId: string, updates: Partia
   await updateDoc(doc(db, 'cancellations', cancellationId), updates);
 };
 
+export const deleteCancellation = async (cancellationId: string) => {
+  await deleteDoc(doc(db, 'cancellations', cancellationId));
+};
+
 // Utility functions
 export const generateOrderID = () => {
-  return 'ORD' + Date.now().toString().slice(-8);
+  const timestamp = Date.now().toString();
+  const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+  return 'ORD' + timestamp.slice(-6) + random;
 };
 
 export const generatePilotCode = (city: string) => {
@@ -310,5 +320,46 @@ export const generateRIN = () => {
 };
 
 export const generateInquiryID = () => {
-  return 'INQ' + Date.now().toString().slice(-6);
+  const timestamp = Date.now().toString();
+  const random = Math.floor(Math.random() * 100).toString().padStart(2, '0');
+  return 'INQ' + timestamp.slice(-4) + random;
+};
+
+// Real-time listeners
+export const subscribeToOrders = (callback: (orders: Order[]) => void) => {
+  const q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'));
+  return onSnapshot(q, (querySnapshot) => {
+    const orders = querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      createdAt: doc.data().createdAt?.toDate() || new Date(),
+      updatedAt: doc.data().updatedAt?.toDate() || new Date(),
+    })) as Order[];
+    callback(orders);
+  });
+};
+
+export const subscribeToInquiries = (callback: (inquiries: Inquiry[]) => void) => {
+  const q = query(collection(db, 'inquiries'), orderBy('createdAt', 'desc'));
+  return onSnapshot(q, (querySnapshot) => {
+    const inquiries = querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      createdAt: doc.data().createdAt?.toDate() || new Date(),
+    })) as Inquiry[];
+    callback(inquiries);
+  });
+};
+
+export const subscribeToVideoReviews = (callback: (reviews: VideoReview[]) => void) => {
+  const q = query(collection(db, 'videoReviews'), orderBy('createdAt', 'desc'));
+  return onSnapshot(q, (querySnapshot) => {
+    const reviews = querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      createdAt: doc.data().createdAt?.toDate() || new Date(),
+      updatedAt: doc.data().updatedAt?.toDate() || new Date(),
+    })) as VideoReview[];
+    callback(reviews);
+  });
 };
