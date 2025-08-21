@@ -1,87 +1,183 @@
+// User Authentication & Roles
+export interface User {
+  id: string;
+  email: string;
+  role: 'admin' | 'client' | 'pilot' | 'editor';
+  status: 'active' | 'inactive';
+  createdAt: Date;
+}
+
+// Applications
+export interface ClientApplication {
+  id: string;
+  companyName: string;
+  contactName: string;
+  email: string;
+  phone: string;
+  city: string;
+  industry: string;
+  website?: string;
+  documentsLink?: string;
+  referralCode?: string;
+  status: 'pending' | 'approved' | 'rejected' | 'more_info';
+  adminComments?: string;
+  approvedAt?: Date;
+  createdAt: Date;
+}
+
+export interface StaffApplication {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  role: 'pilot' | 'editor';
+  location: string;
+  portfolioLink?: string;
+  skills: string[];
+  documentsLink?: string;
+  referralCode?: string;
+  status: 'pending' | 'approved' | 'rejected' | 'more_info';
+  adminComments?: string;
+  approvedAt?: Date;
+  createdAt: Date;
+}
+
+// Approved Users
+export interface Client {
+  id: string;
+  userId: string;
+  companyName: string;
+  contactName: string;
+  phone: string;
+  city: string;
+  industry: string;
+  website?: string;
+  status: 'active' | 'inactive';
+  joinedAt: Date;
+}
+
+export interface Staff {
+  id: string;
+  userId: string;
+  name: string;
+  role: 'pilot' | 'editor';
+  location: string;
+  skills?: string[];
+  status: 'active' | 'inactive';
+  joinedAt: Date;
+}
+
+// Orders
 export interface Order {
   id: string;
   orderID: string;
+  clientId: string;
   clientName: string;
-  phoneNumber: string;
-  city: string;
-  editor?: string;
-  pilot?: string;
-  status: 'new' | 'assigned' | 'editing' | 'final_review' | 'completed' | 'cancelled';
-  amount: number;
+  orderDate: Date;
+  location: string;
+  packageType: 'basic' | 'premium' | 'custom';
+  requirements: string;
+  budget: number;
+  referenceFiles?: string[];
+  status: 'pending' | 'approved' | 'assigned' | 'pilot_submitted' | 'pilot_reviewed' | 'editor_submitted' | 'editor_reviewed' | 'completed' | 'rejected' | 'cancelled';
+  advancePaid: boolean;
+  finalPaid: boolean;
+  finalDriveLink?: string;
+  adminComments?: string;
   createdAt: Date;
   updatedAt: Date;
-  packageType?: string;
-  paymentStatus: 'pending' | 'partial' | 'completed';
-  driveLink?: string;
-  referralCode?: string;
-  requirementSummary?: string;
 }
 
-export interface Pilot {
+// Assignments
+export interface Assignment {
   id: string;
-  name: string;
+  orderId: string;
+  pilotId?: string;
+  pilotName?: string;
+  editorId?: string;
+  editorName?: string;
+  assignedAt: Date;
+  status: 'assigned' | 'in_progress' | 'completed';
+}
+
+// Submissions
+export interface Submission {
+  id: string;
+  orderId: string;
+  submittedBy: 'pilot' | 'editor';
+  submitterId: string;
+  submitterName: string;
+  driveLink: string;
+  duration?: number; // for pilot submissions (in minutes)
+  hoursWorked?: number; // for editor submissions
+  comments: string;
+  status: 'submitted' | 'reviewed' | 'approved' | 'rejected';
+  submittedAt: Date;
+  reviewedAt?: Date;
+  reviewedBy?: string;
+  reviewComments?: string;
+}
+
+// Comments System
+export interface Comment {
+  id: string;
+  orderId: string;
+  commentBy: 'admin' | 'pilot' | 'editor' | 'client';
+  commenterId: string;
+  commenterName: string;
+  commentStage: 'pilot_submission' | 'editor_submission' | 'final_review' | 'client_feedback' | 'general';
+  commentText: string;
+  createdAt: Date;
+}
+
+// Referrals
+export interface Referral {
+  id: string;
+  referrerId: string;
+  referrerName: string;
+  referrerType: 'client' | 'pilot' | 'editor';
+  referredId: string;
+  referredName: string;
+  referralCode: string;
+  rewardStatus: 'pending' | 'redeemed' | 'expired';
+  rewardAmount?: number;
+  createdAt: Date;
+}
+
+// Payments
+export interface Payment {
+  id: string;
+  orderId: string;
+  payerId: string;
+  payerName: string;
+  amount: number;
+  paymentType: 'advance' | 'final' | 'payout';
+  status: 'pending' | 'paid' | 'failed';
+  transactionId?: string;
+  paymentDate?: Date;
+  createdAt: Date;
+}
+
+// Legacy types for backward compatibility
+export interface Pilot extends Staff {
   pilotCode: string;
-  phoneNumber: string;
-  email: string;
-  city: string;
-  state: string;
-  registeredDate: Date;
   totalOrders: number;
   isVerified: boolean;
-  referralCode?: string;
-  status: 'active' | 'inactive';
-  experience?: string;
   totalEarnings: number;
   amountPaid: number;
   remainingDues: number;
+  registeredDate: Date;
 }
 
-export interface Editor {
-  id: string;
-  name: string;
+export interface Editor extends Staff {
   editorCode: string;
-  phoneNumber: string;
-  email: string;
-  city: string;
   totalOrders: number;
   isVerified: boolean;
   specialization: string[];
-  status: 'active' | 'inactive';
-  registeredDate: Date;
   totalEarnings: number;
   amountPaid: number;
   remainingDues: number;
-}
-
-export interface Referral {
-  id: string;
-  name: string;
-  rin: string; // Referral Identification Number
-  email: string;
-  city: string;
-  state: string;
-  socialProfiles: string[];
-  followersCount: number;
-  category: string;
-  referredClients: number;
-  totalOrderCost: number;
-  referralFee: number;
-  centralProfit: number;
   registeredDate: Date;
-  status: 'active' | 'inactive';
-}
-
-export interface Inquiry {
-  id: string;
-  inquiryID: string;
-  clientName: string;
-  requirementSummary: string;
-  source: 'instagram' | 'website' | 'whatsapp' | 'referral';
-  city: string;
-  phoneNumber: string;
-  createdAt: Date;
-  status: 'new' | 'contacted' | 'converted' | 'rejected';
-  followUpNotes?: string;
 }
 
 export interface VideoReview {
@@ -96,6 +192,19 @@ export interface VideoReview {
   comments?: string;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface Inquiry {
+  id: string;
+  inquiryID: string;
+  clientName: string;
+  requirementSummary: string;
+  source: 'instagram' | 'website' | 'whatsapp' | 'referral';
+  city: string;
+  phoneNumber: string;
+  createdAt: Date;
+  status: 'new' | 'contacted' | 'converted' | 'rejected';
+  followUpNotes?: string;
 }
 
 export interface PilotApplication {

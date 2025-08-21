@@ -15,16 +15,113 @@ import {
 import { db } from '../config/firebase';
 import { 
   Order, 
+  Client,
+  Staff,
+  ClientApplication,
+  StaffApplication,
+  Assignment,
+  Submission,
+  Comment,
+  Referral,
+  Payment,
+  // Legacy types
   Pilot, 
   Editor, 
-  Referral, 
-  Inquiry, 
   VideoReview, 
+  Inquiry, 
   PilotApplication,
   EditorApplication,
   ReferralApplication,
   Cancellation
 } from '../types';
+
+// Client Applications
+export const createClientApplication = async (applicationData: Omit<ClientApplication, 'id' | 'createdAt'>) => {
+  const docRef = await addDoc(collection(db, 'clientApplications'), {
+    ...applicationData,
+    createdAt: Timestamp.now()
+  });
+  return docRef.id;
+};
+
+export const getClientApplications = async (): Promise<ClientApplication[]> => {
+  const querySnapshot = await getDocs(query(collection(db, 'clientApplications'), orderBy('createdAt', 'desc')));
+  return querySnapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data(),
+    createdAt: doc.data().createdAt?.toDate() || new Date(),
+    approvedAt: doc.data().approvedAt?.toDate() || undefined,
+  })) as ClientApplication[];
+};
+
+export const updateClientApplication = async (applicationId: string, updates: Partial<ClientApplication>) => {
+  await updateDoc(doc(db, 'clientApplications', applicationId), {
+    ...updates,
+    ...(updates.status === 'approved' && { approvedAt: Timestamp.now() })
+  });
+};
+
+// Staff Applications
+export const createStaffApplication = async (applicationData: Omit<StaffApplication, 'id' | 'createdAt'>) => {
+  const docRef = await addDoc(collection(db, 'staffApplications'), {
+    ...applicationData,
+    createdAt: Timestamp.now()
+  });
+  return docRef.id;
+};
+
+export const getStaffApplications = async (): Promise<StaffApplication[]> => {
+  const querySnapshot = await getDocs(query(collection(db, 'staffApplications'), orderBy('createdAt', 'desc')));
+  return querySnapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data(),
+    createdAt: doc.data().createdAt?.toDate() || new Date(),
+    approvedAt: doc.data().approvedAt?.toDate() || undefined,
+  })) as StaffApplication[];
+};
+
+export const updateStaffApplication = async (applicationId: string, updates: Partial<StaffApplication>) => {
+  await updateDoc(doc(db, 'staffApplications', applicationId), {
+    ...updates,
+    ...(updates.status === 'approved' && { approvedAt: Timestamp.now() })
+  });
+};
+
+// Clients
+export const createClient = async (clientData: Omit<Client, 'id' | 'joinedAt'>) => {
+  const docRef = await addDoc(collection(db, 'clients'), {
+    ...clientData,
+    joinedAt: Timestamp.now()
+  });
+  return docRef.id;
+};
+
+export const getClients = async (): Promise<Client[]> => {
+  const querySnapshot = await getDocs(query(collection(db, 'clients'), orderBy('joinedAt', 'desc')));
+  return querySnapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data(),
+    joinedAt: doc.data().joinedAt?.toDate() || new Date(),
+  })) as Client[];
+};
+
+// Staff
+export const createStaff = async (staffData: Omit<Staff, 'id' | 'joinedAt'>) => {
+  const docRef = await addDoc(collection(db, 'staff'), {
+    ...staffData,
+    joinedAt: Timestamp.now()
+  });
+  return docRef.id;
+};
+
+export const getStaff = async (): Promise<Staff[]> => {
+  const querySnapshot = await getDocs(query(collection(db, 'staff'), orderBy('joinedAt', 'desc')));
+  return querySnapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data(),
+    joinedAt: doc.data().joinedAt?.toDate() || new Date(),
+  })) as Staff[];
+};
 
 // Orders
 export const createOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => {
@@ -43,6 +140,7 @@ export const getOrders = async (): Promise<Order[]> => {
     ...doc.data(),
     createdAt: doc.data().createdAt?.toDate() || new Date(),
     updatedAt: doc.data().updatedAt?.toDate() || new Date(),
+    orderDate: doc.data().orderDate?.toDate() || new Date(),
   })) as Order[];
 };
 
@@ -57,111 +155,196 @@ export const deleteOrder = async (orderId: string) => {
   await deleteDoc(doc(db, 'orders', orderId));
 };
 
-// Pilots
-export const createPilot = async (pilotData: Omit<Pilot, 'id' | 'registeredDate'>) => {
-  const docRef = await addDoc(collection(db, 'pilots'), {
-    ...pilotData,
-    registeredDate: Timestamp.now()
+// Assignments
+export const createAssignment = async (assignmentData: Omit<Assignment, 'id' | 'assignedAt'>) => {
+  const docRef = await addDoc(collection(db, 'assignments'), {
+    ...assignmentData,
+    assignedAt: Timestamp.now()
   });
   return docRef.id;
 };
 
-export const getPilots = async (): Promise<Pilot[]> => {
-  const querySnapshot = await getDocs(query(collection(db, 'pilots'), orderBy('registeredDate', 'desc')));
+export const getAssignments = async (): Promise<Assignment[]> => {
+  const querySnapshot = await getDocs(query(collection(db, 'assignments'), orderBy('assignedAt', 'desc')));
   return querySnapshot.docs.map(doc => ({
     id: doc.id,
     ...doc.data(),
-    registeredDate: doc.data().registeredDate?.toDate() || new Date(),
-  })) as Pilot[];
+    assignedAt: doc.data().assignedAt?.toDate() || new Date(),
+  })) as Assignment[];
 };
 
-export const updatePilot = async (pilotId: string, updates: Partial<Pilot>) => {
-  await updateDoc(doc(db, 'pilots', pilotId), updates);
+export const updateAssignment = async (assignmentId: string, updates: Partial<Assignment>) => {
+  await updateDoc(doc(db, 'assignments', assignmentId), updates);
 };
 
-export const deletePilot = async (pilotId: string) => {
-  await deleteDoc(doc(db, 'pilots', pilotId));
-};
-
-// Editors
-export const createEditor = async (editorData: Omit<Editor, 'id' | 'registeredDate'>) => {
-  const docRef = await addDoc(collection(db, 'editors'), {
-    ...editorData,
-    registeredDate: Timestamp.now()
+// Submissions
+export const createSubmission = async (submissionData: Omit<Submission, 'id' | 'submittedAt'>) => {
+  const docRef = await addDoc(collection(db, 'submissions'), {
+    ...submissionData,
+    submittedAt: Timestamp.now()
   });
   return docRef.id;
 };
 
-export const getEditors = async (): Promise<Editor[]> => {
-  const querySnapshot = await getDocs(query(collection(db, 'editors'), orderBy('registeredDate', 'desc')));
+export const getSubmissions = async (): Promise<Submission[]> => {
+  const querySnapshot = await getDocs(query(collection(db, 'submissions'), orderBy('submittedAt', 'desc')));
   return querySnapshot.docs.map(doc => ({
     id: doc.id,
     ...doc.data(),
-    registeredDate: doc.data().registeredDate?.toDate() || new Date(),
-  })) as Editor[];
+    submittedAt: doc.data().submittedAt?.toDate() || new Date(),
+    reviewedAt: doc.data().reviewedAt?.toDate() || undefined,
+  })) as Submission[];
 };
 
-export const updateEditor = async (editorId: string, updates: Partial<Editor>) => {
-  await updateDoc(doc(db, 'editors', editorId), updates);
-};
-
-export const deleteEditor = async (editorId: string) => {
-  await deleteDoc(doc(db, 'editors', editorId));
-};
-
-// Referrals
-export const createReferral = async (referralData: Omit<Referral, 'id' | 'registeredDate'>) => {
-  const docRef = await addDoc(collection(db, 'referrals'), {
-    ...referralData,
-    registeredDate: Timestamp.now()
+export const updateSubmission = async (submissionId: string, updates: Partial<Submission>) => {
+  await updateDoc(doc(db, 'submissions', submissionId), {
+    ...updates,
+    ...(updates.status === 'reviewed' && { reviewedAt: Timestamp.now() })
   });
-  return docRef.id;
 };
 
-export const getReferrals = async (): Promise<Referral[]> => {
-  const querySnapshot = await getDocs(query(collection(db, 'referrals'), orderBy('registeredDate', 'desc')));
-  return querySnapshot.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data(),
-    registeredDate: doc.data().registeredDate?.toDate() || new Date(),
-  })) as Referral[];
-};
-
-export const updateReferral = async (referralId: string, updates: Partial<Referral>) => {
-  await updateDoc(doc(db, 'referrals', referralId), updates);
-};
-
-export const deleteReferral = async (referralId: string) => {
-  await deleteDoc(doc(db, 'referrals', referralId));
-};
-
-// Inquiries
-export const createInquiry = async (inquiryData: Omit<Inquiry, 'id' | 'createdAt'>) => {
-  const docRef = await addDoc(collection(db, 'inquiries'), {
-    ...inquiryData,
+// Comments
+export const createComment = async (commentData: Omit<Comment, 'id' | 'createdAt'>) => {
+  const docRef = await addDoc(collection(db, 'comments'), {
+    ...commentData,
     createdAt: Timestamp.now()
   });
   return docRef.id;
 };
 
-export const getInquiries = async (): Promise<Inquiry[]> => {
-  const querySnapshot = await getDocs(query(collection(db, 'inquiries'), orderBy('createdAt', 'desc')));
+export const getComments = async (orderId?: string): Promise<Comment[]> => {
+  const q = orderId 
+    ? query(collection(db, 'comments'), where('orderId', '==', orderId), orderBy('createdAt', 'desc'))
+    : query(collection(db, 'comments'), orderBy('createdAt', 'desc'));
+  
+  const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => ({
     id: doc.id,
     ...doc.data(),
     createdAt: doc.data().createdAt?.toDate() || new Date(),
-  })) as Inquiry[];
+  })) as Comment[];
 };
 
-export const updateInquiry = async (inquiryId: string, updates: Partial<Inquiry>) => {
-  await updateDoc(doc(db, 'inquiries', inquiryId), updates);
+// Referrals
+export const createReferral = async (referralData: Omit<Referral, 'id' | 'createdAt'>) => {
+  const docRef = await addDoc(collection(db, 'referrals'), {
+    ...referralData,
+    createdAt: Timestamp.now()
+  });
+  return docRef.id;
 };
 
-export const deleteInquiry = async (inquiryId: string) => {
-  await deleteDoc(doc(db, 'inquiries', inquiryId));
+export const getReferrals = async (): Promise<Referral[]> => {
+  const querySnapshot = await getDocs(query(collection(db, 'referrals'), orderBy('createdAt', 'desc')));
+  return querySnapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data(),
+    createdAt: doc.data().createdAt?.toDate() || new Date(),
+  })) as Referral[];
 };
 
-// Video Reviews
+// Payments
+export const createPayment = async (paymentData: Omit<Payment, 'id' | 'createdAt'>) => {
+  const docRef = await addDoc(collection(db, 'payments'), {
+    ...paymentData,
+    createdAt: Timestamp.now()
+  });
+  return docRef.id;
+};
+
+export const getPayments = async (): Promise<Payment[]> => {
+  const querySnapshot = await getDocs(query(collection(db, 'payments'), orderBy('createdAt', 'desc')));
+  return querySnapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data(),
+    createdAt: doc.data().createdAt?.toDate() || new Date(),
+    paymentDate: doc.data().paymentDate?.toDate() || undefined,
+  })) as Payment[];
+};
+
+// Legacy functions for backward compatibility
+export const getPilots = async (): Promise<Pilot[]> => {
+  const staff = await getStaff();
+  return staff.filter(s => s.role === 'pilot').map(s => ({
+    ...s,
+    pilotCode: `PIL${s.id.slice(-3)}`,
+    totalOrders: 0,
+    isVerified: true,
+    totalEarnings: 0,
+    amountPaid: 0,
+    remainingDues: 0,
+    registeredDate: s.joinedAt,
+    specialization: s.skills || []
+  })) as Pilot[];
+};
+
+export const getEditors = async (): Promise<Editor[]> => {
+  const staff = await getStaff();
+  return staff.filter(s => s.role === 'editor').map(s => ({
+    ...s,
+    editorCode: `ED${s.id.slice(-3)}`,
+    totalOrders: 0,
+    isVerified: true,
+    specialization: s.skills || [],
+    totalEarnings: 0,
+    amountPaid: 0,
+    remainingDues: 0,
+    registeredDate: s.joinedAt
+  })) as Editor[];
+};
+
+export const createPilot = async (pilotData: Omit<Pilot, 'id' | 'registeredDate'>) => {
+  return await createStaff({
+    userId: pilotData.userId || '',
+    name: pilotData.name,
+    role: 'pilot',
+    location: pilotData.location,
+    skills: [],
+    status: pilotData.status
+  });
+};
+
+export const createEditor = async (editorData: Omit<Editor, 'id' | 'registeredDate'>) => {
+  return await createStaff({
+    userId: editorData.userId || '',
+    name: editorData.name,
+    role: 'editor',
+    location: editorData.location,
+    skills: editorData.specialization,
+    status: editorData.status
+  });
+};
+
+export const updatePilot = async (pilotId: string, updates: Partial<Pilot>) => {
+  // Convert to staff update
+  const staffUpdates: Partial<Staff> = {
+    name: updates.name,
+    location: updates.location,
+    status: updates.status
+  };
+  await updateDoc(doc(db, 'staff', pilotId), staffUpdates);
+};
+
+export const updateEditor = async (editorId: string, updates: Partial<Editor>) => {
+  // Convert to staff update
+  const staffUpdates: Partial<Staff> = {
+    name: updates.name,
+    location: updates.location,
+    skills: updates.specialization,
+    status: updates.status
+  };
+  await updateDoc(doc(db, 'staff', editorId), staffUpdates);
+};
+
+export const deletePilot = async (pilotId: string) => {
+  await deleteDoc(doc(db, 'staff', pilotId));
+};
+
+export const deleteEditor = async (editorId: string) => {
+  await deleteDoc(doc(db, 'staff', editorId));
+};
+
+// Video Reviews (Legacy)
 export const createVideoReview = async (reviewData: Omit<VideoReview, 'id' | 'createdAt' | 'updatedAt'>) => {
   const docRef = await addDoc(collection(db, 'videoReviews'), {
     ...reviewData,
@@ -192,67 +375,89 @@ export const deleteVideoReview = async (reviewId: string) => {
   await deleteDoc(doc(db, 'videoReviews', reviewId));
 };
 
-// Pilot Applications
-export const createPilotApplication = async (applicationData: Omit<PilotApplication, 'id' | 'appliedDate'>) => {
-  const docRef = await addDoc(collection(db, 'pilotApplications'), {
-    ...applicationData,
-    appliedDate: Timestamp.now()
+// Inquiries (Legacy)
+export const createInquiry = async (inquiryData: Omit<Inquiry, 'id' | 'createdAt'>) => {
+  const docRef = await addDoc(collection(db, 'inquiries'), {
+    ...inquiryData,
+    createdAt: Timestamp.now()
   });
   return docRef.id;
 };
 
-export const getPilotApplications = async (): Promise<PilotApplication[]> => {
-  const querySnapshot = await getDocs(query(collection(db, 'pilotApplications'), orderBy('appliedDate', 'desc')));
+export const getInquiries = async (): Promise<Inquiry[]> => {
+  const querySnapshot = await getDocs(query(collection(db, 'inquiries'), orderBy('createdAt', 'desc')));
   return querySnapshot.docs.map(doc => ({
     id: doc.id,
     ...doc.data(),
-    appliedDate: doc.data().appliedDate?.toDate() || new Date(),
-  })) as PilotApplication[];
+    createdAt: doc.data().createdAt?.toDate() || new Date(),
+  })) as Inquiry[];
 };
 
-export const updatePilotApplication = async (applicationId: string, updates: Partial<PilotApplication>) => {
-  await updateDoc(doc(db, 'pilotApplications', applicationId), updates);
+export const updateInquiry = async (inquiryId: string, updates: Partial<Inquiry>) => {
+  await updateDoc(doc(db, 'inquiries', inquiryId), updates);
 };
 
-export const deletePilotApplication = async (applicationId: string) => {
-  await deleteDoc(doc(db, 'pilotApplications', applicationId));
+export const deleteInquiry = async (inquiryId: string) => {
+  await deleteDoc(doc(db, 'inquiries', inquiryId));
 };
 
-// Editor Applications
-export const createEditorApplication = async (applicationData: Omit<EditorApplication, 'id' | 'appliedDate'>) => {
-  const docRef = await addDoc(collection(db, 'editorApplications'), {
-    ...applicationData,
-    appliedDate: Timestamp.now()
-  });
-  return docRef.id;
+// Legacy Application functions
+export const getPilotApplications = async (): Promise<PilotApplication[]> => {
+  const staffApps = await getStaffApplications();
+  return staffApps.filter(app => app.role === 'pilot').map(app => ({
+    id: app.id,
+    name: app.name,
+    phoneNumber: app.phone,
+    email: app.email,
+    city: app.location,
+    experience: app.skills.join(', '),
+    appliedDate: app.createdAt,
+    status: app.status as any,
+    referralCode: app.referralCode,
+    adminComments: app.adminComments
+  }));
 };
 
 export const getEditorApplications = async (): Promise<EditorApplication[]> => {
-  const querySnapshot = await getDocs(query(collection(db, 'editorApplications'), orderBy('appliedDate', 'desc')));
-  return querySnapshot.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data(),
-    appliedDate: doc.data().appliedDate?.toDate() || new Date(),
-  })) as EditorApplication[];
+  const staffApps = await getStaffApplications();
+  return staffApps.filter(app => app.role === 'editor').map(app => ({
+    id: app.id,
+    name: app.name,
+    phoneNumber: app.phone,
+    email: app.email,
+    city: app.location,
+    experience: app.skills.join(', '),
+    specialization: app.skills,
+    appliedDate: app.createdAt,
+    status: app.status as any,
+    portfolioLink: app.portfolioLink,
+    adminComments: app.adminComments
+  }));
+};
+
+export const updatePilotApplication = async (applicationId: string, updates: Partial<PilotApplication>) => {
+  await updateStaffApplication(applicationId, {
+    status: updates.status as any,
+    adminComments: updates.adminComments
+  });
 };
 
 export const updateEditorApplication = async (applicationId: string, updates: Partial<EditorApplication>) => {
-  await updateDoc(doc(db, 'editorApplications', applicationId), updates);
+  await updateStaffApplication(applicationId, {
+    status: updates.status as any,
+    adminComments: updates.adminComments
+  });
+};
+
+export const deletePilotApplication = async (applicationId: string) => {
+  await deleteDoc(doc(db, 'staffApplications', applicationId));
 };
 
 export const deleteEditorApplication = async (applicationId: string) => {
-  await deleteDoc(doc(db, 'editorApplications', applicationId));
+  await deleteDoc(doc(db, 'staffApplications', applicationId));
 };
 
-// Referral Applications
-export const createReferralApplication = async (applicationData: Omit<ReferralApplication, 'id' | 'appliedDate'>) => {
-  const docRef = await addDoc(collection(db, 'referralApplications'), {
-    ...applicationData,
-    appliedDate: Timestamp.now()
-  });
-  return docRef.id;
-};
-
+// Referral Applications (Legacy)
 export const getReferralApplications = async (): Promise<ReferralApplication[]> => {
   const querySnapshot = await getDocs(query(collection(db, 'referralApplications'), orderBy('appliedDate', 'desc')));
   return querySnapshot.docs.map(doc => ({
@@ -270,15 +475,7 @@ export const deleteReferralApplication = async (applicationId: string) => {
   await deleteDoc(doc(db, 'referralApplications', applicationId));
 };
 
-// Cancellations
-export const createCancellation = async (cancellationData: Omit<Cancellation, 'id' | 'cancellationDate'>) => {
-  const docRef = await addDoc(collection(db, 'cancellations'), {
-    ...cancellationData,
-    cancellationDate: Timestamp.now()
-  });
-  return docRef.id;
-};
-
+// Cancellations (Legacy)
 export const getCancellations = async (): Promise<Cancellation[]> => {
   const querySnapshot = await getDocs(query(collection(db, 'cancellations'), orderBy('cancellationDate', 'desc')));
   return querySnapshot.docs.map(doc => ({
@@ -288,12 +485,16 @@ export const getCancellations = async (): Promise<Cancellation[]> => {
   })) as Cancellation[];
 };
 
-export const updateCancellation = async (cancellationId: string, updates: Partial<Cancellation>) => {
-  await updateDoc(doc(db, 'cancellations', cancellationId), updates);
+export const createCancellation = async (cancellationData: Omit<Cancellation, 'id' | 'cancellationDate'>) => {
+  const docRef = await addDoc(collection(db, 'cancellations'), {
+    ...cancellationData,
+    cancellationDate: Timestamp.now()
+  });
+  return docRef.id;
 };
 
-export const deleteCancellation = async (cancellationId: string) => {
-  await deleteDoc(doc(db, 'cancellations', cancellationId));
+export const updateCancellation = async (cancellationId: string, updates: Partial<Cancellation>) => {
+  await updateDoc(doc(db, 'cancellations', cancellationId), updates);
 };
 
 // Utility functions
@@ -325,6 +526,15 @@ export const generateInquiryID = () => {
   return 'INQ' + timestamp.slice(-4) + random;
 };
 
+export const generateReferralCode = () => {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let result = '';
+  for (let i = 0; i < 8; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+};
+
 // Real-time listeners
 export const subscribeToOrders = (callback: (orders: Order[]) => void) => {
   const q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'));
@@ -334,6 +544,7 @@ export const subscribeToOrders = (callback: (orders: Order[]) => void) => {
       ...doc.data(),
       createdAt: doc.data().createdAt?.toDate() || new Date(),
       updatedAt: doc.data().updatedAt?.toDate() || new Date(),
+      orderDate: doc.data().orderDate?.toDate() || new Date(),
     })) as Order[];
     callback(orders);
   });

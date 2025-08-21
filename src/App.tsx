@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Sidebar from './components/layout/Sidebar';
 import Header from './components/layout/Header';
 import Dashboard from './pages/Dashboard';
+import Applications from './pages/Applications';
+import OrderManagement from './pages/OrderManagement';
 import VideoReview from './pages/VideoReview';
 import Inquiries from './pages/Inquiries';
 import Referrals from './pages/Referrals';
@@ -31,6 +33,10 @@ function App() {
     switch (currentPage) {
       case 'home':
         return <Dashboard />;
+      case 'applications':
+        return <Applications />;
+      case 'order-management':
+        return <OrderManagement />;
       case 'video-review':
         return <VideoReview />;
       case 'inquiries':
@@ -69,6 +75,8 @@ function App() {
   const getPageTitle = () => {
     switch (currentPage) {
       case 'home': return 'Dashboard';
+      case 'applications': return 'Applications Management';
+      case 'order-management': return 'Order Management';
       case 'video-review': return 'Video Review';
       case 'referrals': return 'Referrals';
       case 'pilots': return 'Pilot Management';

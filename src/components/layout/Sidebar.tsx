@@ -15,6 +15,9 @@ import {
   Database,
   UserPlus,
   PlusCircle
+  FileText,
+  ClipboardList,
+  UserCheck
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -27,6 +30,8 @@ export default function Sidebar({ currentPage, onPageChange }: SidebarProps) {
 
   const navigationItems = [
     { id: 'home', icon: Home, label: 'Dashboard' },
+    { id: 'applications', icon: FileText, label: 'Applications' },
+    { id: 'order-management', icon: ClipboardList, label: 'Order Management' },
     { id: 'video-review', icon: Video, label: 'Video Review' },
     { id: 'referrals', icon: Users, label: 'Referrals' },
     { id: 'pilots', icon: Plane, label: 'Pilots' },
