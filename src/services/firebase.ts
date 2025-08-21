@@ -17,8 +17,6 @@ import {
   Order, 
   Client,
   Staff,
-  ClientApplication,
-  StaffApplication,
   Assignment,
   Submission,
   Comment,
@@ -34,6 +32,11 @@ import {
   ReferralApplication,
   Cancellation
 } from '../types';
+import { 
+  ClientApplication,
+  StaffApplication,
+  ReferralApplication as NewReferralApplication
+} from '../types/auth';
 
 // Client Applications
 export const createClientApplication = async (applicationData: Omit<ClientApplication, 'id' | 'createdAt'>) => {
@@ -59,6 +62,24 @@ export const updateClientApplication = async (applicationId: string, updates: Pa
     ...updates,
     ...(updates.status === 'approved' && { approvedAt: Timestamp.now() })
   });
+};
+
+// Referral Applications (New)
+export const createReferralApplication = async (applicationData: Omit<NewReferralApplication, 'id' | 'createdAt'>) => {
+  const docRef = await addDoc(collection(db, 'referralApplications'), {
+    ...applicationData,
+    createdAt: Timestamp.now()
+  });
+  return docRef.id;
+};
+
+export const getNewReferralApplications = async (): Promise<NewReferralApplication[]> => {
+  const querySnapshot = await getDocs(query(collection(db, 'referralApplications'), orderBy('createdAt', 'desc')));
+  return querySnapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data(),
+    createdAt: doc.data().createdAt?.toDate() || new Date(),
+  })) as NewReferralApplication[];
 };
 
 // Staff Applications
@@ -438,7 +459,7 @@ export const getEditorApplications = async (): Promise<EditorApplication[]> => {
     specialization: app.skills,
     appliedDate: app.createdAt,
     status: app.status as any,
-    portfolioLink: app.portfolioLink,
+    portfolioLink: app.portfolio?.[0],
     adminComments: app.adminComments
   }));
 };

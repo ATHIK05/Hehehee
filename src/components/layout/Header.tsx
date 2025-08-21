@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { Bell, Settings, User, LogOut, Menu } from 'lucide-react';
 import { useState } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
 import Modal from '../ui/Modal';
 
 interface HeaderProps {
@@ -9,6 +10,7 @@ interface HeaderProps {
 }
 
 export default function Header({ title, sidebarCollapsed }: HeaderProps) {
+  const { user, signOut } = useAuth();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
@@ -20,10 +22,13 @@ export default function Header({ title, sidebarCollapsed }: HeaderProps) {
     { id: 4, message: 'New pilot application from Delhi', time: '1 hour ago', type: 'application' },
   ];
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     if (window.confirm('Are you sure you want to logout?')) {
-      // Implement logout logic here
-      console.log('Logging out...');
+      try {
+        await signOut();
+      } catch (error) {
+        console.error('Error signing out:', error);
+      }
     }
   };
   return (
@@ -79,8 +84,8 @@ export default function Header({ title, sidebarCollapsed }: HeaderProps) {
                 <User className="w-4 h-4 text-white" />
               </div>
               <div className="hidden md:block text-left">
-                <p className="text-sm font-medium text-slate-900">Admin User</p>
-                <p className="text-xs text-slate-500">Level 2 Access</p>
+                <p className="text-sm font-medium text-slate-900">{user?.profile.name}</p>
+                <p className="text-xs text-slate-500 capitalize">{user?.userType}</p>
               </div>
             </motion.button>
 
@@ -156,9 +161,9 @@ export default function Header({ title, sidebarCollapsed }: HeaderProps) {
                   <p className="text-xs text-slate-500">Switch to dark theme</p>
                 </div>
                 <input type="checkbox" className="rounded" />
-              </div>
-            </div>
-          </div>
+                <h3 className="text-lg font-medium text-slate-900">{user?.profile.name}</h3>
+                <p className="text-sm text-slate-500">{user?.email}</p>
+                <p className="text-xs text-slate-400 capitalize">{user?.userType} Access</p>
           
           <div>
             <h3 className="text-lg font-medium text-slate-900 mb-4">System Preferences</h3>
@@ -167,7 +172,7 @@ export default function Header({ title, sidebarCollapsed }: HeaderProps) {
                 <label className="block text-sm font-medium text-slate-700 mb-2">Default Currency</label>
                 <select className="w-full px-3 py-2 border border-slate-300 rounded-lg">
                   <option value="INR">Indian Rupee (₹)</option>
-                  <option value="USD">US Dollar ($)</option>
+                  defaultValue={user?.profile.name}
                   <option value="EUR">Euro (€)</option>
                 </select>
               </div>
@@ -175,7 +180,7 @@ export default function Header({ title, sidebarCollapsed }: HeaderProps) {
                 <label className="block text-sm font-medium text-slate-700 mb-2">Time Zone</label>
                 <select className="w-full px-3 py-2 border border-slate-300 rounded-lg">
                   <option value="IST">India Standard Time (IST)</option>
-                  <option value="UTC">Coordinated Universal Time (UTC)</option>
+                  defaultValue={user?.profile.phone}
                   <option value="EST">Eastern Standard Time (EST)</option>
                 </select>
               </div>
