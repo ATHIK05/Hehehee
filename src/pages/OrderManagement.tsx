@@ -1,6 +1,21 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Search, Eye, UserCheck, Users, Calendar, MapPin, DollarSign, FileText, CheckCircle, XCircle } from 'lucide-react';
+import { 
+  Search, 
+  Eye, 
+  UserCheck, 
+  Users, 
+  Calendar, 
+  MapPin, 
+  DollarSign, 
+  FileText, 
+  CheckCircle, 
+  XCircle,
+  MessageSquare,
+  Clock,
+  Play,
+  Upload
+} from 'lucide-react';
 import { Order, Assignment, Submission, Comment, Staff } from '../types';
 import StatusBadge from '../components/ui/StatusBadge';
 import Button from '../components/ui/Button';
@@ -27,7 +42,7 @@ export default function OrderManagement() {
   const [comments, setComments] = useState<Comment[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedTab, setSelectedTab] = useState<'pending' | 'approved' | 'assigned' | 'in_progress' | 'completed'>('pending');
+  const [selectedTab, setSelectedTab] = useState<'pending' | 'approved' | 'assigned' | 'pilot_submitted' | 'editor_submitted' | 'completed'>('pending');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -122,7 +137,11 @@ export default function OrderManagement() {
         status: 'assigned'
       });
       
-      await updateOrder(order.id, { status: 'assigned' });
+      await updateOrder(order.id, { 
+        status: 'assigned',
+        pilot: pilot?.name,
+        editor: editor?.name
+      });
       
       await createComment({
         orderId: order.id,
@@ -189,8 +208,11 @@ export default function OrderManagement() {
       case 'assigned':
         filteredOrders = orders.filter(o => o.status === 'assigned');
         break;
-      case 'in_progress':
-        filteredOrders = orders.filter(o => ['pilot_submitted', 'pilot_reviewed', 'editor_submitted'].includes(o.status));
+      case 'pilot_submitted':
+        filteredOrders = orders.filter(o => o.status === 'pilot_submitted');
+        break;
+      case 'editor_submitted':
+        filteredOrders = orders.filter(o => o.status === 'editor_submitted');
         break;
       case 'completed':
         filteredOrders = orders.filter(o => ['editor_reviewed', 'completed'].includes(o.status));
@@ -200,7 +222,7 @@ export default function OrderManagement() {
     return filteredOrders.filter(order => 
       order.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       order.orderID.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.location.toLowerCase().includes(searchTerm.toLowerCase())
+      order.city.toLowerCase().includes(searchTerm.toLowerCase())
     );
   };
 
@@ -213,7 +235,9 @@ export default function OrderManagement() {
   };
 
   const getOrderComments = (orderId: string) => {
-    return comments.filter(c => c.orderId === orderId);
+    return comments.filter(c => c.orderId === orderId).sort((a, b) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
   };
 
   const pilots = staff.filter(s => s.role === 'pilot');
@@ -223,7 +247,8 @@ export default function OrderManagement() {
     { id: 'pending' as const, label: 'Pending Review', count: orders.filter(o => o.status === 'pending').length },
     { id: 'approved' as const, label: 'Approved', count: orders.filter(o => o.status === 'approved').length },
     { id: 'assigned' as const, label: 'Assigned', count: orders.filter(o => o.status === 'assigned').length },
-    { id: 'in_progress' as const, label: 'In Progress', count: orders.filter(o => ['pilot_submitted', 'pilot_reviewed', 'editor_submitted'].includes(o.status)).length },
+    { id: 'pilot_submitted' as const, label: 'Pilot Submitted', count: orders.filter(o => o.status === 'pilot_submitted').length },
+    { id: 'editor_submitted' as const, label: 'Editor Submitted', count: orders.filter(o => o.status === 'editor_submitted').length },
     { id: 'completed' as const, label: 'Completed', count: orders.filter(o => ['editor_reviewed', 'completed'].includes(o.status)).length },
   ];
 
@@ -238,7 +263,10 @@ export default function OrderManagement() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-900">Order Management</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Order Management</h1>
+          <p className="text-slate-600">Complete order lifecycle management</p>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -318,6 +346,10 @@ export default function OrderManagement() {
             <tbody className="bg-white divide-y divide-slate-200">
               {getFilteredOrders().map((order, index) => {
                 const assignment = getOrderAssignment(order.id);
+                const orderSubmissions = getOrderSubmissions(order.id);
+                const pilotSubmission = orderSubmissions.find(s => s.submittedBy === 'pilot');
+                const editorSubmission = orderSubmissions.find(s => s.submittedBy === 'editor');
+                
                 return (
                   <motion.tr
                     key={order.id}
@@ -332,18 +364,19 @@ export default function OrderManagement() {
                         <div className="text-sm text-slate-500 capitalize">{order.packageType} Package</div>
                         <div className="flex items-center mt-1">
                           <DollarSign className="w-3 h-3 text-slate-400 mr-1" />
-                          <span className="text-sm text-slate-600">₹{order.budget.toLocaleString()}</span>
+                          <span className="text-sm text-slate-600">₹{order.amount.toLocaleString()}</span>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-slate-900">{order.clientName}</div>
+                      <div className="text-sm text-slate-500">{order.phoneNumber}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <MapPin className="w-4 h-4 text-slate-400 mr-2" />
                         <div>
-                          <div className="text-sm text-slate-900">{order.location}</div>
+                          <div className="text-sm text-slate-900">{order.city}</div>
                           <div className="flex items-center text-sm text-slate-500">
                             <Calendar className="w-3 h-3 mr-1" />
                             {format(order.orderDate, 'dd MMM yyyy')}
@@ -416,34 +449,68 @@ export default function OrderManagement() {
                 <p className="text-slate-900">{selectedOrder.clientName}</p>
               </div>
               <div>
+                <label className="text-sm font-medium text-slate-700">Phone Number</label>
+                <p className="text-slate-900">{selectedOrder.phoneNumber}</p>
+              </div>
+              <div>
                 <label className="text-sm font-medium text-slate-700">Location</label>
-                <p className="text-slate-900">{selectedOrder.location}</p>
+                <p className="text-slate-900">{selectedOrder.city}</p>
               </div>
               <div>
                 <label className="text-sm font-medium text-slate-700">Order Date</label>
                 <p className="text-slate-900">{format(selectedOrder.orderDate, 'dd MMM yyyy')}</p>
               </div>
               <div>
+                <label className="text-sm font-medium text-slate-700">Duration</label>
+                <p className="text-slate-900">{selectedOrder.duration} hours</p>
+              </div>
+              <div>
                 <label className="text-sm font-medium text-slate-700">Package Type</label>
                 <p className="text-slate-900 capitalize">{selectedOrder.packageType}</p>
               </div>
               <div>
-                <label className="text-sm font-medium text-slate-700">Budget</label>
-                <p className="text-slate-900 font-semibold">₹{selectedOrder.budget.toLocaleString()}</p>
+                <label className="text-sm font-medium text-slate-700">Amount</label>
+                <p className="text-slate-900 font-semibold">₹{selectedOrder.amount.toLocaleString()}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700">Payment Status</label>
+                <StatusBadge status={selectedOrder.paymentStatus} variant="payment" />
               </div>
             </div>
 
             <div>
               <label className="text-sm font-medium text-slate-700">Requirements</label>
               <p className="text-slate-900 bg-slate-50 p-3 rounded-lg mt-1">
-                {selectedOrder.requirements}
+                {selectedOrder.requirementSummary}
               </p>
             </div>
+
+            {selectedOrder.referenceFiles && selectedOrder.referenceFiles.length > 0 && (
+              <div>
+                <label className="text-sm font-medium text-slate-700">Reference Files</label>
+                <div className="space-y-1 mt-1">
+                  {selectedOrder.referenceFiles.map((file, idx) => (
+                    <a 
+                      key={idx}
+                      href={file} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-800 block text-sm"
+                    >
+                      Reference File {idx + 1}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Assignment Section */}
             {selectedOrder.status === 'approved' && (
               <div className="border-t pt-6">
-                <h3 className="text-lg font-medium text-slate-900 mb-4">Staff Assignment</h3>
+                <h3 className="text-lg font-medium text-slate-900 mb-4 flex items-center">
+                  <UserCheck className="w-5 h-5 mr-2" />
+                  Staff Assignment
+                </h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm font-medium text-slate-700 mb-2 block">Assign Pilot</label>
@@ -482,28 +549,95 @@ export default function OrderManagement() {
             {/* Submissions Section */}
             {getOrderSubmissions(selectedOrder.id).length > 0 && (
               <div className="border-t pt-6">
-                <h3 className="text-lg font-medium text-slate-900 mb-4">Submissions</h3>
+                <h3 className="text-lg font-medium text-slate-900 mb-4 flex items-center">
+                  <Upload className="w-5 h-5 mr-2" />
+                  Submissions
+                </h3>
                 <div className="space-y-4">
                   {getOrderSubmissions(selectedOrder.id).map(submission => (
-                    <div key={submission.id} className="bg-slate-50 p-4 rounded-lg">
-                      <div className="flex items-center justify-between mb-2">
-                        <div>
-                          <span className="font-medium capitalize">{submission.submittedBy}</span>
-                          <span className="text-slate-500 ml-2">- {submission.submitterName}</span>
+                    <div key={submission.id} className="bg-slate-50 p-4 rounded-lg border">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center space-x-3">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                            submission.submittedBy === 'pilot' ? 'bg-blue-100 text-blue-600' : 'bg-purple-100 text-purple-600'
+                          }`}>
+                            {submission.submittedBy === 'pilot' ? '✈️' : '✂️'}
+                          </div>
+                          <div>
+                            <span className="font-medium capitalize">{submission.submittedBy}</span>
+                            <span className="text-slate-500 ml-2">- {submission.submitterName}</span>
+                          </div>
                         </div>
-                        <StatusBadge status={submission.status} />
+                        <div className="flex items-center space-x-2">
+                          <StatusBadge status={submission.status} />
+                          <span className="text-xs text-slate-500">
+                            {format(submission.submittedAt, 'dd MMM - hh:mm a')}
+                          </span>
+                        </div>
                       </div>
-                      <p className="text-sm text-slate-600 mb-2">{submission.comments}</p>
-                      <a 
-                        href={submission.driveLink} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-800 text-sm"
-                      >
-                        View Drive Link
-                      </a>
+                      
+                      {/* Submission Details */}
+                      <div className="grid grid-cols-2 gap-4 mb-3">
+                        {submission.duration && (
+                          <div>
+                            <label className="text-xs font-medium text-slate-600">Flight Duration</label>
+                            <p className="text-sm text-slate-900">{submission.duration} minutes</p>
+                          </div>
+                        )}
+                        {submission.hoursWorked && (
+                          <div>
+                            <label className="text-xs font-medium text-slate-600">Hours Worked</label>
+                            <p className="text-sm text-slate-900">{submission.hoursWorked} hours</p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Comments from Pilot/Editor */}
+                      {submission.comments && (
+                        <div className="mb-3">
+                          <label className="text-xs font-medium text-slate-600 flex items-center">
+                            <MessageSquare className="w-3 h-3 mr-1" />
+                            {submission.submittedBy === 'pilot' ? 'Pilot' : 'Editor'} Comments
+                          </label>
+                          <p className="text-sm text-slate-900 bg-white p-2 rounded border mt-1">
+                            {submission.comments}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Drive Link */}
+                      <div className="mb-3">
+                        <a 
+                          href={submission.driveLink} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-800 text-sm flex items-center"
+                        >
+                          <Play className="w-4 h-4 mr-1" />
+                          View {submission.submittedBy === 'pilot' ? 'Raw Footage' : 'Edited Video'}
+                        </a>
+                      </div>
+
+                      {/* Admin Review Comments */}
+                      {submission.reviewComments && (
+                        <div className="mb-3">
+                          <label className="text-xs font-medium text-slate-600">Admin Review Comments</label>
+                          <p className="text-sm text-slate-700 bg-blue-50 p-2 rounded border mt-1">
+                            {submission.reviewComments}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Review Actions */}
                       {submission.status === 'submitted' && (
-                        <div className="mt-3 flex space-x-2">
+                        <div className="flex items-center space-x-2 mt-3">
+                          <input
+                            type="text"
+                            placeholder="Add review comment..."
+                            value={reviewComment}
+                            onChange={(e) => setReviewComment(e.target.value)}
+                            className="flex-1 px-3 py-1 text-sm border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-slate-500"
+                          />
                           <Button 
                             size="sm" 
                             variant="success"
@@ -528,15 +662,33 @@ export default function OrderManagement() {
               </div>
             )}
 
-            {/* Comments Section */}
+            {/* Comments History Section */}
             {getOrderComments(selectedOrder.id).length > 0 && (
               <div className="border-t pt-6">
-                <h3 className="text-lg font-medium text-slate-900 mb-4">Comments History</h3>
-                <div className="space-y-3 max-h-40 overflow-y-auto">
+                <h3 className="text-lg font-medium text-slate-900 mb-4 flex items-center">
+                  <MessageSquare className="w-5 h-5 mr-2" />
+                  Comments History
+                </h3>
+                <div className="space-y-3 max-h-60 overflow-y-auto">
                   {getOrderComments(selectedOrder.id).map(comment => (
-                    <div key={comment.id} className="bg-slate-50 p-3 rounded-lg">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm font-medium">{comment.commenterName}</span>
+                    <div key={comment.id} className="bg-slate-50 p-3 rounded-lg border">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center space-x-2">
+                          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${
+                            comment.commentBy === 'admin' ? 'bg-red-100 text-red-600' :
+                            comment.commentBy === 'pilot' ? 'bg-blue-100 text-blue-600' :
+                            comment.commentBy === 'editor' ? 'bg-purple-100 text-purple-600' :
+                            'bg-green-100 text-green-600'
+                          }`}>
+                            {comment.commentBy === 'admin' ? 'A' :
+                             comment.commentBy === 'pilot' ? 'P' :
+                             comment.commentBy === 'editor' ? 'E' : 'C'}
+                          </div>
+                          <span className="text-sm font-medium">{comment.commenterName}</span>
+                          <span className="text-xs text-slate-500 capitalize">
+                            ({comment.commentStage.replace('_', ' ')})
+                          </span>
+                        </div>
                         <span className="text-xs text-slate-500">
                           {format(comment.createdAt, 'dd MMM - hh:mm a')}
                         </span>
@@ -548,9 +700,12 @@ export default function OrderManagement() {
               </div>
             )}
 
-            {/* Review Comments */}
+            {/* Add Comment Section */}
             <div>
-              <label className="text-sm font-medium text-slate-700 mb-2 block">Add Comment</label>
+              <label className="text-sm font-medium text-slate-700 mb-2 block flex items-center">
+                <MessageSquare className="w-4 h-4 mr-2" />
+                Add Admin Comment
+              </label>
               <textarea
                 value={reviewComment}
                 onChange={(e) => setReviewComment(e.target.value)}
@@ -579,6 +734,22 @@ export default function OrderManagement() {
                 <Button onClick={() => handleAssignStaff(selectedOrder)}>
                   <UserCheck className="w-4 h-4 mr-2" />
                   Assign Staff
+                </Button>
+              )}
+              {reviewComment.trim() && (
+                <Button onClick={async () => {
+                  await createComment({
+                    orderId: selectedOrder.id,
+                    commentBy: 'admin',
+                    commenterId: 'admin-1',
+                    commenterName: 'Admin',
+                    commentStage: 'general',
+                    commentText: reviewComment
+                  });
+                  setReviewComment('');
+                  fetchData();
+                }}>
+                  Add Comment
                 </Button>
               )}
             </div>

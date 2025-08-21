@@ -2,12 +2,51 @@
 export interface User {
   id: string;
   email: string;
-  role: 'admin' | 'client' | 'pilot' | 'editor';
-  status: 'active' | 'inactive';
+  userType: 'admin' | 'client' | 'pilot' | 'editor';
+  status: 'active' | 'inactive' | 'pending';
+  profile: UserProfile;
   createdAt: Date;
+  lastLoginAt?: Date;
 }
 
-// Applications
+export interface UserProfile {
+  name: string;
+  phone: string;
+  avatar?: string;
+  clientProfile?: ClientProfile;
+  staffProfile?: StaffProfile;
+}
+
+export interface ClientProfile {
+  companyName: string;
+  contactName: string;
+  industry: string;
+  city: string;
+  gstNumber?: string;
+  businessAddress: string;
+  website?: string;
+  businessLicense?: string;
+  verificationStatus: 'pending' | 'verified' | 'rejected';
+  verifiedAt?: Date;
+}
+
+export interface StaffProfile {
+  role: 'pilot' | 'editor';
+  location: string;
+  skills: string[];
+  portfolio?: string[];
+  documents?: string[];
+  availability: 'full-time' | 'part-time' | 'freelance';
+  bankDetails?: {
+    accountNumber: string;
+    ifscCode: string;
+    accountHolderName: string;
+  };
+  verificationStatus: 'pending' | 'verified' | 'rejected';
+  verifiedAt?: Date;
+}
+
+// Application Types
 export interface ClientApplication {
   id: string;
   companyName: string;
@@ -16,12 +55,18 @@ export interface ClientApplication {
   phone: string;
   city: string;
   industry: string;
+  businessAddress: string;
+  gstNumber?: string;
+  businessLicense: string;
   website?: string;
-  documentsLink?: string;
   referralCode?: string;
   status: 'pending' | 'approved' | 'rejected' | 'more_info';
   adminComments?: string;
-  approvedAt?: Date;
+  documentsVerified: boolean;
+  emailVerified: boolean;
+  phoneVerified: boolean;
+  reviewedBy?: string;
+  reviewedAt?: Date;
   createdAt: Date;
 }
 
@@ -32,17 +77,37 @@ export interface StaffApplication {
   phone: string;
   role: 'pilot' | 'editor';
   location: string;
-  portfolioLink?: string;
   skills: string[];
-  documentsLink?: string;
+  portfolio: string[];
+  documents: string[];
+  availability: 'full-time' | 'part-time' | 'freelance';
   referralCode?: string;
   status: 'pending' | 'approved' | 'rejected' | 'more_info';
   adminComments?: string;
-  approvedAt?: Date;
+  documentsVerified: boolean;
+  portfolioVerified: boolean;
+  reviewedBy?: string;
+  reviewedAt?: Date;
   createdAt: Date;
 }
 
-// Approved Users
+export interface ReferralApplication {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  city: string;
+  state: string;
+  category: 'influencer' | 'reviewer' | 'promoter' | 'content_creator' | 'business_partner' | 'marketing_agency';
+  socialProfiles: string[];
+  followersCount: number;
+  referralCode?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  adminComments?: string;
+  createdAt: Date;
+}
+
+// Core Business Entities
 export interface Client {
   id: string;
   userId: string;
@@ -52,6 +117,8 @@ export interface Client {
   city: string;
   industry: string;
   website?: string;
+  gstNumber?: string;
+  businessAddress: string;
   status: 'active' | 'inactive';
   joinedAt: Date;
 }
@@ -63,6 +130,8 @@ export interface Staff {
   role: 'pilot' | 'editor';
   location: string;
   skills?: string[];
+  portfolio?: string[];
+  availability: 'full-time' | 'part-time' | 'freelance';
   status: 'active' | 'inactive';
   joinedAt: Date;
 }
@@ -73,15 +142,18 @@ export interface Order {
   orderID: string;
   clientId: string;
   clientName: string;
+  phoneNumber: string;
+  city: string;
   orderDate: Date;
-  location: string;
+  duration: number; // estimated duration in hours
   packageType: 'basic' | 'premium' | 'custom';
-  requirements: string;
-  budget: number;
+  requirementSummary: string;
   referenceFiles?: string[];
-  status: 'pending' | 'approved' | 'assigned' | 'pilot_submitted' | 'pilot_reviewed' | 'editor_submitted' | 'editor_reviewed' | 'completed' | 'rejected' | 'cancelled';
-  advancePaid: boolean;
-  finalPaid: boolean;
+  amount: number;
+  paymentStatus: 'pending' | 'advance_paid' | 'fully_paid';
+  status: 'pending' | 'approved' | 'assigned' | 'pilot_submitted' | 'pilot_reviewed' | 'editor_assigned' | 'editor_submitted' | 'editor_reviewed' | 'completed' | 'rejected' | 'cancelled';
+  pilot?: string;
+  editor?: string;
   finalDriveLink?: string;
   adminComments?: string;
   createdAt: Date;
@@ -111,14 +183,14 @@ export interface Submission {
   duration?: number; // for pilot submissions (in minutes)
   hoursWorked?: number; // for editor submissions
   comments: string;
-  status: 'submitted' | 'reviewed' | 'approved' | 'rejected';
+  status: 'submitted' | 'under_review' | 'approved' | 'rejected' | 'resubmitted';
   submittedAt: Date;
   reviewedAt?: Date;
   reviewedBy?: string;
   reviewComments?: string;
 }
 
-// Comments System
+// Comments System (Centralized for Audit Trail)
 export interface Comment {
   id: string;
   orderId: string;
@@ -133,14 +205,19 @@ export interface Comment {
 // Referrals
 export interface Referral {
   id: string;
-  referrerId: string;
-  referrerName: string;
-  referrerType: 'client' | 'pilot' | 'editor';
-  referredId: string;
-  referredName: string;
-  referralCode: string;
-  rewardStatus: 'pending' | 'redeemed' | 'expired';
-  rewardAmount?: number;
+  rin: string; // Referral Identification Number
+  name: string;
+  email: string;
+  city: string;
+  state: string;
+  category: string;
+  socialProfiles: string[];
+  followersCount: number;
+  referredClients: number;
+  totalOrderCost: number;
+  referralFee: number;
+  centralProfit: number;
+  status: 'active' | 'inactive';
   createdAt: Date;
 }
 
@@ -152,10 +229,57 @@ export interface Payment {
   payerName: string;
   amount: number;
   paymentType: 'advance' | 'final' | 'payout';
+  paymentMethod: 'upi' | 'bank_transfer' | 'card' | 'cash';
   status: 'pending' | 'paid' | 'failed';
   transactionId?: string;
   paymentDate?: Date;
   createdAt: Date;
+}
+
+// Video Reviews
+export interface VideoReview {
+  id: string;
+  orderID: string;
+  clientName: string;
+  driveLink: string;
+  editorAssigned: string;
+  pilotAssigned: string;
+  reviewStatus: 'not_reviewed' | 'under_review' | 'approved' | 'rejected' | 'needs_change';
+  type: 'before_edit' | 'after_edit';
+  comments?: string;
+  reviewedBy?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Inquiries
+export interface Inquiry {
+  id: string;
+  inquiryID: string;
+  clientName: string;
+  phoneNumber: string;
+  city: string;
+  requirementSummary: string;
+  source: 'instagram' | 'website' | 'whatsapp' | 'referral' | 'direct';
+  status: 'new' | 'contacted' | 'converted' | 'rejected';
+  followUpNotes?: string;
+  convertedOrderId?: string;
+  createdAt: Date;
+}
+
+// Cancellations
+export interface Cancellation {
+  id: string;
+  orderID: string;
+  clientName: string;
+  city: string;
+  assignedPilot?: string;
+  assignedEditor?: string;
+  cancellationDate: Date;
+  reason: 'client' | 'weather' | 'gear_issue' | 'pilot_unavailable' | 'editor_unavailable' | 'other';
+  status: 'cancelled' | 'reassigned' | 'refund_initiated' | 'refund_completed';
+  refundAmount?: number;
+  adminNotes?: string;
 }
 
 // Legacy types for backward compatibility
@@ -167,6 +291,8 @@ export interface Pilot extends Staff {
   amountPaid: number;
   remainingDues: number;
   registeredDate: Date;
+  experience?: string;
+  state?: string;
 }
 
 export interface Editor extends Staff {
@@ -178,33 +304,7 @@ export interface Editor extends Staff {
   amountPaid: number;
   remainingDues: number;
   registeredDate: Date;
-}
-
-export interface VideoReview {
-  id: string;
-  orderID: string;
-  clientName: string;
-  driveLink: string;
-  editorAssigned: string;
-  pilotAssigned: string;
-  reviewStatus: 'not_reviewed' | 'under_review' | 'approved' | 'rejected' | 'needs_change';
-  type: 'before_edit' | 'after_edit';
-  comments?: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface Inquiry {
-  id: string;
-  inquiryID: string;
-  clientName: string;
-  requirementSummary: string;
-  source: 'instagram' | 'website' | 'whatsapp' | 'referral';
-  city: string;
-  phoneNumber: string;
-  createdAt: Date;
-  status: 'new' | 'contacted' | 'converted' | 'rejected';
-  followUpNotes?: string;
+  experience?: string;
 }
 
 export interface PilotApplication {
@@ -232,32 +332,4 @@ export interface EditorApplication {
   status: 'pending' | 'contacted' | 'approved' | 'rejected';
   portfolioLink?: string;
   adminComments?: string;
-}
-
-export interface ReferralApplication {
-  id: string;
-  name: string;
-  email: string;
-  city: string;
-  state: string;
-  socialProfiles: string[];
-  followersCount: number;
-  category: string;
-  appliedDate: Date;
-  status: 'pending' | 'approved' | 'rejected';
-  adminComments?: string;
-}
-
-export interface Cancellation {
-  id: string;
-  orderID: string;
-  clientName: string;
-  city: string;
-  assignedPilot?: string;
-  assignedEditor?: string;
-  cancellationDate: Date;
-  reason: 'client' | 'weather' | 'gear_issue' | 'pilot_unavailable' | 'editor_unavailable' | 'other';
-  status: 'cancelled' | 'reassigned' | 'refund_initiated' | 'refund_completed';
-  refundAmount?: number;
-  adminNotes?: string;
 }

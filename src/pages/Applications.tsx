@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Search, Eye, CheckCircle, XCircle, Clock, FileText, Users, Edit3 } from 'lucide-react';
-import { ClientApplication, StaffApplication } from '../types';
+import { Search, Eye, CheckCircle, XCircle, Clock, FileText, Users, Edit3, Building, MessageSquare } from 'lucide-react';
+import { ClientApplication, StaffApplication, ReferralApplication } from '../types';
 import StatusBadge from '../components/ui/StatusBadge';
 import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
@@ -9,19 +9,23 @@ import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { 
   getClientApplications, 
   getStaffApplications, 
+  getReferralApplications,
   updateClientApplication, 
   updateStaffApplication,
+  updateReferralApplication,
   createClient,
-  createStaff
+  createStaff,
+  createReferral
 } from '../services/firebase';
 import { format } from 'date-fns';
 
 export default function Applications() {
   const [clientApplications, setClientApplications] = useState<ClientApplication[]>([]);
   const [staffApplications, setStaffApplications] = useState<StaffApplication[]>([]);
+  const [referralApplications, setReferralApplications] = useState<ReferralApplication[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedTab, setSelectedTab] = useState<'clients' | 'pilots' | 'editors'>('clients');
-  const [selectedApplication, setSelectedApplication] = useState<ClientApplication | StaffApplication | null>(null);
+  const [selectedTab, setSelectedTab] = useState<'clients' | 'pilots' | 'editors' | 'referrals'>('clients');
+  const [selectedApplication, setSelectedApplication] = useState<ClientApplication | StaffApplication | ReferralApplication | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -33,12 +37,14 @@ export default function Applications() {
 
   const fetchApplications = async () => {
     try {
-      const [clientApps, staffApps] = await Promise.all([
+      const [clientApps, staffApps, referralApps] = await Promise.all([
         getClientApplications(),
-        getStaffApplications()
+        getStaffApplications(),
+        getReferralApplications()
       ]);
       setClientApplications(clientApps);
       setStaffApplications(staffApps);
+      setReferralApplications(referralApps);
     } catch (error) {
       console.error('Error fetching applications:', error);
     } finally {
@@ -46,13 +52,15 @@ export default function Applications() {
     }
   };
 
-  const handleApproveApplication = async (application: ClientApplication | StaffApplication) => {
+  const handleApproveApplication = async (application: ClientApplication | StaffApplication | ReferralApplication) => {
     try {
       if ('companyName' in application) {
         // Client application
         await updateClientApplication(application.id, { 
           status: 'approved',
-          adminComments: reviewComment 
+          adminComments: reviewComment,
+          reviewedBy: 'admin',
+          reviewedAt: new Date()
         });
         
         // Create client record
@@ -64,13 +72,17 @@ export default function Applications() {
           city: application.city,
           industry: application.industry,
           website: application.website,
+          gstNumber: application.gstNumber,
+          businessAddress: application.businessAddress,
           status: 'active'
         });
-      } else {
+      } else if ('role' in application) {
         // Staff application
         await updateStaffApplication(application.id, { 
           status: 'approved',
-          adminComments: reviewComment 
+          adminComments: reviewComment,
+          reviewedBy: 'admin',
+          reviewedAt: new Date()
         });
         
         // Create staff record
@@ -80,6 +92,30 @@ export default function Applications() {
           role: application.role,
           location: application.location,
           skills: application.skills,
+          portfolio: application.portfolio,
+          availability: application.availability,
+          status: 'active'
+        });
+      } else {
+        // Referral application
+        await updateReferralApplication(application.id, { 
+          status: 'approved',
+          adminComments: reviewComment 
+        });
+        
+        // Create referral record
+        await createReferral({
+          name: application.name,
+          email: application.email,
+          city: application.city,
+          state: application.state,
+          category: application.category,
+          socialProfiles: application.socialProfiles,
+          followersCount: application.followersCount,
+          referredClients: 0,
+          totalOrderCost: 0,
+          referralFee: 0,
+          centralProfit: 0,
           status: 'active'
         });
       }
@@ -92,7 +128,7 @@ export default function Applications() {
     }
   };
 
-  const handleRejectApplication = async (application: ClientApplication | StaffApplication) => {
+  const handleRejectApplication = async (application: ClientApplication | StaffApplication | ReferralApplication) => {
     if (!reviewComment.trim()) {
       alert('Please add a comment explaining the rejection reason.');
       return;
@@ -102,10 +138,19 @@ export default function Applications() {
       if ('companyName' in application) {
         await updateClientApplication(application.id, { 
           status: 'rejected',
-          adminComments: reviewComment 
+          adminComments: reviewComment,
+          reviewedBy: 'admin',
+          reviewedAt: new Date()
+        });
+      } else if ('role' in application) {
+        await updateStaffApplication(application.id, { 
+          status: 'rejected',
+          adminComments: reviewComment,
+          reviewedBy: 'admin',
+          reviewedAt: new Date()
         });
       } else {
-        await updateStaffApplication(application.id, { 
+        await updateReferralApplication(application.id, { 
           status: 'rejected',
           adminComments: reviewComment 
         });
@@ -119,7 +164,7 @@ export default function Applications() {
     }
   };
 
-  const handleRequestMoreInfo = async (application: ClientApplication | StaffApplication) => {
+  const handleRequestMoreInfo = async (application: ClientApplication | StaffApplication | ReferralApplication) => {
     if (!reviewComment.trim()) {
       alert('Please add a comment explaining what additional information is needed.');
       return;
@@ -129,12 +174,16 @@ export default function Applications() {
       if ('companyName' in application) {
         await updateClientApplication(application.id, { 
           status: 'more_info',
-          adminComments: reviewComment 
+          adminComments: reviewComment,
+          reviewedBy: 'admin',
+          reviewedAt: new Date()
         });
-      } else {
+      } else if ('role' in application) {
         await updateStaffApplication(application.id, { 
           status: 'more_info',
-          adminComments: reviewComment 
+          adminComments: reviewComment,
+          reviewedBy: 'admin',
+          reviewedAt: new Date()
         });
       }
       
@@ -147,10 +196,12 @@ export default function Applications() {
   };
 
   const getFilteredApplications = () => {
-    let applications: (ClientApplication | StaffApplication)[] = [];
+    let applications: (ClientApplication | StaffApplication | ReferralApplication)[] = [];
     
     if (selectedTab === 'clients') {
       applications = clientApplications;
+    } else if (selectedTab === 'referrals') {
+      applications = referralApplications;
     } else {
       applications = staffApplications.filter(app => app.role === selectedTab.slice(0, -1) as 'pilot' | 'editor');
     }
@@ -182,7 +233,7 @@ export default function Applications() {
       id: 'clients' as const, 
       label: 'Client Applications', 
       count: clientApplications.filter(app => app.status === 'pending').length,
-      icon: Users
+      icon: Building
     },
     { 
       id: 'pilots' as const, 
@@ -195,6 +246,12 @@ export default function Applications() {
       label: 'Editor Applications', 
       count: staffApplications.filter(app => app.role === 'editor' && app.status === 'pending').length,
       icon: Edit3
+    },
+    { 
+      id: 'referrals' as const, 
+      label: 'Referral Applications', 
+      count: referralApplications.filter(app => app.status === 'pending').length,
+      icon: Users
     },
   ];
 
@@ -209,7 +266,10 @@ export default function Applications() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-900">Applications Management</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Applications Management</h1>
+          <p className="text-slate-600">Review and approve new applications</p>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -313,7 +373,10 @@ export default function Applications() {
                   Email
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                  {selectedTab === 'clients' ? 'Industry' : 'Location'}
+                  Phone
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                  {selectedTab === 'clients' ? 'Industry' : selectedTab === 'referrals' ? 'Category' : 'Location'}
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                   Applied Date
@@ -349,7 +412,14 @@ export default function Applications() {
                     {application.email}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
-                    {'companyName' in application ? application.industry : application.location}
+                    {application.phone}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
+                    {'companyName' in application 
+                      ? application.industry 
+                      : 'category' in application 
+                        ? application.category 
+                        : application.location}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
                     {format(application.createdAt, 'dd MMM yyyy')}
@@ -375,10 +445,10 @@ export default function Applications() {
                         <>
                           <Button
                             size="sm"
-                            variant="success"
-                            onClick={() => handleApproveApplication(application)}
+                            variant="secondary"
+                            onClick={() => handleRequestMoreInfo(application)}
                           >
-                            Approve
+                            More Info
                           </Button>
                           <Button
                             size="sm"
@@ -386,6 +456,13 @@ export default function Applications() {
                             onClick={() => handleRejectApplication(application)}
                           >
                             Reject
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="success"
+                            onClick={() => handleApproveApplication(application)}
+                          >
+                            Approve
                           </Button>
                         </>
                       )}
@@ -434,6 +511,16 @@ export default function Applications() {
                     <label className="text-sm font-medium text-slate-700">City</label>
                     <p className="text-slate-900">{selectedApplication.city}</p>
                   </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-700">Business Address</label>
+                    <p className="text-slate-900">{selectedApplication.businessAddress}</p>
+                  </div>
+                  {selectedApplication.gstNumber && (
+                    <div>
+                      <label className="text-sm font-medium text-slate-700">GST Number</label>
+                      <p className="text-slate-900">{selectedApplication.gstNumber}</p>
+                    </div>
+                  )}
                   {selectedApplication.website && (
                     <div>
                       <label className="text-sm font-medium text-slate-700">Website</label>
@@ -447,8 +534,34 @@ export default function Applications() {
                       </a>
                     </div>
                   )}
+                  <div>
+                    <label className="text-sm font-medium text-slate-700">Business License</label>
+                    <a 
+                      href={selectedApplication.businessLicense} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-800"
+                    >
+                      View Document
+                    </a>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-700">Verification Status</label>
+                    <div className="flex items-center space-x-2 mt-1">
+                      <span className={`w-2 h-2 rounded-full ${selectedApplication.documentsVerified ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                      <span className="text-sm">Documents: {selectedApplication.documentsVerified ? 'Verified' : 'Pending'}</span>
+                    </div>
+                    <div className="flex items-center space-x-2 mt-1">
+                      <span className={`w-2 h-2 rounded-full ${selectedApplication.emailVerified ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                      <span className="text-sm">Email: {selectedApplication.emailVerified ? 'Verified' : 'Pending'}</span>
+                    </div>
+                    <div className="flex items-center space-x-2 mt-1">
+                      <span className={`w-2 h-2 rounded-full ${selectedApplication.phoneVerified ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                      <span className="text-sm">Phone: {selectedApplication.phoneVerified ? 'Verified' : 'Pending'}</span>
+                    </div>
+                  </div>
                 </>
-              ) : (
+              ) : 'role' in selectedApplication ? (
                 // Staff Application
                 <>
                   <div>
@@ -464,6 +577,10 @@ export default function Applications() {
                     <p className="text-slate-900">{selectedApplication.location}</p>
                   </div>
                   <div>
+                    <label className="text-sm font-medium text-slate-700">Availability</label>
+                    <p className="text-slate-900 capitalize">{selectedApplication.availability.replace('_', ' ')}</p>
+                  </div>
+                  <div>
                     <label className="text-sm font-medium text-slate-700">Skills</label>
                     <div className="flex flex-wrap gap-1 mt-1">
                       {selectedApplication.skills.map((skill, idx) => (
@@ -476,19 +593,89 @@ export default function Applications() {
                       ))}
                     </div>
                   </div>
-                  {selectedApplication.portfolioLink && (
-                    <div>
-                      <label className="text-sm font-medium text-slate-700">Portfolio</label>
-                      <a 
-                        href={selectedApplication.portfolioLink} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-800"
-                      >
-                        View Portfolio
-                      </a>
+                  <div>
+                    <label className="text-sm font-medium text-slate-700">Portfolio</label>
+                    <div className="space-y-1 mt-1">
+                      {selectedApplication.portfolio.map((link, idx) => (
+                        <a 
+                          key={idx}
+                          href={link} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-800 block text-sm"
+                        >
+                          Portfolio Link {idx + 1}
+                        </a>
+                      ))}
                     </div>
-                  )}
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-700">Documents</label>
+                    <div className="space-y-1 mt-1">
+                      {selectedApplication.documents.map((link, idx) => (
+                        <a 
+                          key={idx}
+                          href={link} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-800 block text-sm"
+                        >
+                          Document {idx + 1}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-700">Verification Status</label>
+                    <div className="flex items-center space-x-2 mt-1">
+                      <span className={`w-2 h-2 rounded-full ${selectedApplication.documentsVerified ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                      <span className="text-sm">Documents: {selectedApplication.documentsVerified ? 'Verified' : 'Pending'}</span>
+                    </div>
+                    <div className="flex items-center space-x-2 mt-1">
+                      <span className={`w-2 h-2 rounded-full ${selectedApplication.portfolioVerified ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                      <span className="text-sm">Portfolio: {selectedApplication.portfolioVerified ? 'Verified' : 'Pending'}</span>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                // Referral Application
+                <>
+                  <div>
+                    <label className="text-sm font-medium text-slate-700">Name</label>
+                    <p className="text-slate-900">{selectedApplication.name}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-700">Category</label>
+                    <p className="text-slate-900 capitalize">{selectedApplication.category.replace('_', ' ')}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-700">City</label>
+                    <p className="text-slate-900">{selectedApplication.city}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-700">State</label>
+                    <p className="text-slate-900">{selectedApplication.state}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-700">Followers Count</label>
+                    <p className="text-slate-900">{selectedApplication.followersCount.toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-700">Social Profiles</label>
+                    <div className="space-y-1 mt-1">
+                      {selectedApplication.socialProfiles.map((profile, idx) => (
+                        <a 
+                          key={idx}
+                          href={profile} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-800 block text-sm"
+                        >
+                          {profile}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
                 </>
               )}
               
@@ -513,27 +700,18 @@ export default function Applications() {
             {selectedApplication.referralCode && (
               <div>
                 <label className="text-sm font-medium text-slate-700">Referral Code</label>
-                <p className="text-slate-900 font-mono">{selectedApplication.referralCode}</p>
-              </div>
-            )}
-
-            {selectedApplication.documentsLink && (
-              <div>
-                <label className="text-sm font-medium text-slate-700">Documents</label>
-                <a 
-                  href={selectedApplication.documentsLink} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-blue-600 hover:text-blue-800 block"
-                >
-                  View Documents
-                </a>
+                <p className="text-slate-900 font-mono bg-slate-50 px-3 py-2 rounded-lg">
+                  {selectedApplication.referralCode}
+                </p>
               </div>
             )}
 
             {/* Review Comments */}
             <div>
-              <label className="text-sm font-medium text-slate-700 mb-2 block">Review Comments</label>
+              <label className="text-sm font-medium text-slate-700 mb-2 block">
+                <MessageSquare className="w-4 h-4 inline mr-2" />
+                Review Comments
+              </label>
               <textarea
                 value={reviewComment}
                 onChange={(e) => setReviewComment(e.target.value)}
@@ -548,6 +726,14 @@ export default function Applications() {
                 <label className="text-sm font-medium text-slate-700">Previous Comments</label>
                 <p className="text-slate-900 bg-slate-50 p-3 rounded-lg mt-1">
                   {selectedApplication.adminComments}
+                </p>
+              </div>
+            )}
+
+            {selectedApplication.reviewedBy && selectedApplication.reviewedAt && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-sm text-blue-800">
+                  Reviewed by {selectedApplication.reviewedBy} on {format(selectedApplication.reviewedAt, 'dd MMM yyyy - hh:mm a')}
                 </p>
               </div>
             )}

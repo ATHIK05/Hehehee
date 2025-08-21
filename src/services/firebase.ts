@@ -22,21 +22,13 @@ import {
   Comment,
   Referral,
   Payment,
-  // Legacy types
-  Pilot, 
-  Editor, 
-  VideoReview, 
-  Inquiry, 
-  PilotApplication,
-  EditorApplication,
-  ReferralApplication,
-  Cancellation
-} from '../types';
-import { 
   ClientApplication,
   StaffApplication,
-  ReferralApplication as NewReferralApplication
-} from '../types/auth';
+  ReferralApplication,
+  VideoReview,
+  Inquiry,
+  Cancellation
+} from '../types';
 
 // Client Applications
 export const createClientApplication = async (applicationData: Omit<ClientApplication, 'id' | 'createdAt'>) => {
@@ -53,33 +45,15 @@ export const getClientApplications = async (): Promise<ClientApplication[]> => {
     id: doc.id,
     ...doc.data(),
     createdAt: doc.data().createdAt?.toDate() || new Date(),
-    approvedAt: doc.data().approvedAt?.toDate() || undefined,
+    reviewedAt: doc.data().reviewedAt?.toDate() || undefined,
   })) as ClientApplication[];
 };
 
 export const updateClientApplication = async (applicationId: string, updates: Partial<ClientApplication>) => {
   await updateDoc(doc(db, 'clientApplications', applicationId), {
     ...updates,
-    ...(updates.status === 'approved' && { approvedAt: Timestamp.now() })
+    ...(updates.reviewedAt && { reviewedAt: Timestamp.now() })
   });
-};
-
-// Referral Applications (New)
-export const createReferralApplication = async (applicationData: Omit<NewReferralApplication, 'id' | 'createdAt'>) => {
-  const docRef = await addDoc(collection(db, 'referralApplications'), {
-    ...applicationData,
-    createdAt: Timestamp.now()
-  });
-  return docRef.id;
-};
-
-export const getNewReferralApplications = async (): Promise<NewReferralApplication[]> => {
-  const querySnapshot = await getDocs(query(collection(db, 'referralApplications'), orderBy('createdAt', 'desc')));
-  return querySnapshot.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data(),
-    createdAt: doc.data().createdAt?.toDate() || new Date(),
-  })) as NewReferralApplication[];
 };
 
 // Staff Applications
@@ -97,15 +71,37 @@ export const getStaffApplications = async (): Promise<StaffApplication[]> => {
     id: doc.id,
     ...doc.data(),
     createdAt: doc.data().createdAt?.toDate() || new Date(),
-    approvedAt: doc.data().approvedAt?.toDate() || undefined,
+    reviewedAt: doc.data().reviewedAt?.toDate() || undefined,
   })) as StaffApplication[];
 };
 
 export const updateStaffApplication = async (applicationId: string, updates: Partial<StaffApplication>) => {
   await updateDoc(doc(db, 'staffApplications', applicationId), {
     ...updates,
-    ...(updates.status === 'approved' && { approvedAt: Timestamp.now() })
+    ...(updates.reviewedAt && { reviewedAt: Timestamp.now() })
   });
+};
+
+// Referral Applications
+export const createReferralApplication = async (applicationData: Omit<ReferralApplication, 'id' | 'createdAt'>) => {
+  const docRef = await addDoc(collection(db, 'referralApplications'), {
+    ...applicationData,
+    createdAt: Timestamp.now()
+  });
+  return docRef.id;
+};
+
+export const getReferralApplications = async (): Promise<ReferralApplication[]> => {
+  const querySnapshot = await getDocs(query(collection(db, 'referralApplications'), orderBy('createdAt', 'desc')));
+  return querySnapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data(),
+    createdAt: doc.data().createdAt?.toDate() || new Date(),
+  })) as ReferralApplication[];
+};
+
+export const updateReferralApplication = async (applicationId: string, updates: Partial<ReferralApplication>) => {
+  await updateDoc(doc(db, 'referralApplications', applicationId), updates);
 };
 
 // Clients
@@ -126,6 +122,14 @@ export const getClients = async (): Promise<Client[]> => {
   })) as Client[];
 };
 
+export const updateClient = async (clientId: string, updates: Partial<Client>) => {
+  await updateDoc(doc(db, 'clients', clientId), updates);
+};
+
+export const deleteClient = async (clientId: string) => {
+  await deleteDoc(doc(db, 'clients', clientId));
+};
+
 // Staff
 export const createStaff = async (staffData: Omit<Staff, 'id' | 'joinedAt'>) => {
   const docRef = await addDoc(collection(db, 'staff'), {
@@ -144,10 +148,19 @@ export const getStaff = async (): Promise<Staff[]> => {
   })) as Staff[];
 };
 
+export const updateStaff = async (staffId: string, updates: Partial<Staff>) => {
+  await updateDoc(doc(db, 'staff', staffId), updates);
+};
+
+export const deleteStaff = async (staffId: string) => {
+  await deleteDoc(doc(db, 'staff', staffId));
+};
+
 // Orders
 export const createOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => {
   const docRef = await addDoc(collection(db, 'orders'), {
     ...orderData,
+    orderDate: orderData.orderDate ? Timestamp.fromDate(orderData.orderDate) : Timestamp.now(),
     createdAt: Timestamp.now(),
     updatedAt: Timestamp.now()
   });
@@ -166,10 +179,16 @@ export const getOrders = async (): Promise<Order[]> => {
 };
 
 export const updateOrder = async (orderId: string, updates: Partial<Order>) => {
-  await updateDoc(doc(db, 'orders', orderId), {
+  const updateData: any = {
     ...updates,
     updatedAt: Timestamp.now()
-  });
+  };
+  
+  if (updates.orderDate) {
+    updateData.orderDate = Timestamp.fromDate(updates.orderDate);
+  }
+  
+  await updateDoc(doc(db, 'orders', orderId), updateData);
 };
 
 export const deleteOrder = async (orderId: string) => {
@@ -218,10 +237,12 @@ export const getSubmissions = async (): Promise<Submission[]> => {
 };
 
 export const updateSubmission = async (submissionId: string, updates: Partial<Submission>) => {
-  await updateDoc(doc(db, 'submissions', submissionId), {
+  const updateData: any = {
     ...updates,
-    ...(updates.status === 'reviewed' && { reviewedAt: Timestamp.now() })
-  });
+    ...(updates.status === 'approved' || updates.status === 'rejected' ? { reviewedAt: Timestamp.now() } : {})
+  };
+  
+  await updateDoc(doc(db, 'submissions', submissionId), updateData);
 };
 
 // Comments
@@ -248,8 +269,10 @@ export const getComments = async (orderId?: string): Promise<Comment[]> => {
 
 // Referrals
 export const createReferral = async (referralData: Omit<Referral, 'id' | 'createdAt'>) => {
+  const rin = generateRIN();
   const docRef = await addDoc(collection(db, 'referrals'), {
     ...referralData,
+    rin,
     createdAt: Timestamp.now()
   });
   return docRef.id;
@@ -276,7 +299,8 @@ export const deleteReferral = async (referralId: string) => {
 export const createPayment = async (paymentData: Omit<Payment, 'id' | 'createdAt'>) => {
   const docRef = await addDoc(collection(db, 'payments'), {
     ...paymentData,
-    createdAt: Timestamp.now()
+    createdAt: Timestamp.now(),
+    ...(paymentData.paymentDate && { paymentDate: Timestamp.fromDate(paymentData.paymentDate) })
   });
   return docRef.id;
 };
@@ -291,89 +315,7 @@ export const getPayments = async (): Promise<Payment[]> => {
   })) as Payment[];
 };
 
-// Legacy functions for backward compatibility
-export const getPilots = async (): Promise<Pilot[]> => {
-  const staff = await getStaff();
-  return staff.filter(s => s.role === 'pilot').map(s => ({
-    ...s,
-    pilotCode: `PIL${s.id.slice(-3)}`,
-    totalOrders: 0,
-    isVerified: true,
-    totalEarnings: 0,
-    amountPaid: 0,
-    remainingDues: 0,
-    registeredDate: s.joinedAt,
-    specialization: s.skills || []
-  })) as Pilot[];
-};
-
-export const getEditors = async (): Promise<Editor[]> => {
-  const staff = await getStaff();
-  return staff.filter(s => s.role === 'editor').map(s => ({
-    ...s,
-    editorCode: `ED${s.id.slice(-3)}`,
-    totalOrders: 0,
-    isVerified: true,
-    specialization: s.skills || [],
-    totalEarnings: 0,
-    amountPaid: 0,
-    remainingDues: 0,
-    registeredDate: s.joinedAt
-  })) as Editor[];
-};
-
-export const createPilot = async (pilotData: Omit<Pilot, 'id' | 'registeredDate'>) => {
-  return await createStaff({
-    userId: pilotData.userId || '',
-    name: pilotData.name,
-    role: 'pilot',
-    location: pilotData.location,
-    skills: [],
-    status: pilotData.status
-  });
-};
-
-export const createEditor = async (editorData: Omit<Editor, 'id' | 'registeredDate'>) => {
-  return await createStaff({
-    userId: editorData.userId || '',
-    name: editorData.name,
-    role: 'editor',
-    location: editorData.location,
-    skills: editorData.specialization,
-    status: editorData.status
-  });
-};
-
-export const updatePilot = async (pilotId: string, updates: Partial<Pilot>) => {
-  // Convert to staff update
-  const staffUpdates: Partial<Staff> = {
-    name: updates.name,
-    location: updates.location,
-    status: updates.status
-  };
-  await updateDoc(doc(db, 'staff', pilotId), staffUpdates);
-};
-
-export const updateEditor = async (editorId: string, updates: Partial<Editor>) => {
-  // Convert to staff update
-  const staffUpdates: Partial<Staff> = {
-    name: updates.name,
-    location: updates.location,
-    skills: updates.specialization,
-    status: updates.status
-  };
-  await updateDoc(doc(db, 'staff', editorId), staffUpdates);
-};
-
-export const deletePilot = async (pilotId: string) => {
-  await deleteDoc(doc(db, 'staff', pilotId));
-};
-
-export const deleteEditor = async (editorId: string) => {
-  await deleteDoc(doc(db, 'staff', editorId));
-};
-
-// Video Reviews (Legacy)
+// Video Reviews
 export const createVideoReview = async (reviewData: Omit<VideoReview, 'id' | 'createdAt' | 'updatedAt'>) => {
   const docRef = await addDoc(collection(db, 'videoReviews'), {
     ...reviewData,
@@ -400,14 +342,12 @@ export const updateVideoReview = async (reviewId: string, updates: Partial<Video
   });
 };
 
-export const deleteVideoReview = async (reviewId: string) => {
-  await deleteDoc(doc(db, 'videoReviews', reviewId));
-};
-
-// Inquiries (Legacy)
+// Inquiries
 export const createInquiry = async (inquiryData: Omit<Inquiry, 'id' | 'createdAt'>) => {
+  const inquiryID = generateInquiryID();
   const docRef = await addDoc(collection(db, 'inquiries'), {
     ...inquiryData,
+    inquiryID,
     createdAt: Timestamp.now()
   });
   return docRef.id;
@@ -430,81 +370,7 @@ export const deleteInquiry = async (inquiryId: string) => {
   await deleteDoc(doc(db, 'inquiries', inquiryId));
 };
 
-// Legacy Application functions
-export const getPilotApplications = async (): Promise<PilotApplication[]> => {
-  const staffApps = await getStaffApplications();
-  return staffApps.filter(app => app.role === 'pilot').map(app => ({
-    id: app.id,
-    name: app.name,
-    phoneNumber: app.phone,
-    email: app.email,
-    city: app.location,
-    experience: app.skills.join(', '),
-    appliedDate: app.createdAt,
-    status: app.status as any,
-    referralCode: app.referralCode,
-    adminComments: app.adminComments
-  }));
-};
-
-export const getEditorApplications = async (): Promise<EditorApplication[]> => {
-  const staffApps = await getStaffApplications();
-  return staffApps.filter(app => app.role === 'editor').map(app => ({
-    id: app.id,
-    name: app.name,
-    phoneNumber: app.phone,
-    email: app.email,
-    city: app.location,
-    experience: app.skills.join(', '),
-    specialization: app.skills,
-    appliedDate: app.createdAt,
-    status: app.status as any,
-    portfolioLink: app.portfolio?.[0],
-    adminComments: app.adminComments
-  }));
-};
-
-export const updatePilotApplication = async (applicationId: string, updates: Partial<PilotApplication>) => {
-  await updateStaffApplication(applicationId, {
-    status: updates.status as any,
-    adminComments: updates.adminComments
-  });
-};
-
-export const updateEditorApplication = async (applicationId: string, updates: Partial<EditorApplication>) => {
-  await updateStaffApplication(applicationId, {
-    status: updates.status as any,
-    adminComments: updates.adminComments
-  });
-};
-
-export const deletePilotApplication = async (applicationId: string) => {
-  await deleteDoc(doc(db, 'staffApplications', applicationId));
-};
-
-export const deleteEditorApplication = async (applicationId: string) => {
-  await deleteDoc(doc(db, 'staffApplications', applicationId));
-};
-
-// Referral Applications (Legacy)
-export const getReferralApplications = async (): Promise<ReferralApplication[]> => {
-  const querySnapshot = await getDocs(query(collection(db, 'referralApplications'), orderBy('appliedDate', 'desc')));
-  return querySnapshot.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data(),
-    appliedDate: doc.data().appliedDate?.toDate() || new Date(),
-  })) as ReferralApplication[];
-};
-
-export const updateReferralApplication = async (applicationId: string, updates: Partial<ReferralApplication>) => {
-  await updateDoc(doc(db, 'referralApplications', applicationId), updates);
-};
-
-export const deleteReferralApplication = async (applicationId: string) => {
-  await deleteDoc(doc(db, 'referralApplications', applicationId));
-};
-
-// Cancellations (Legacy)
+// Cancellations
 export const getCancellations = async (): Promise<Cancellation[]> => {
   const querySnapshot = await getDocs(query(collection(db, 'cancellations'), orderBy('cancellationDate', 'desc')));
   return querySnapshot.docs.map(doc => ({
@@ -526,6 +392,163 @@ export const updateCancellation = async (cancellationId: string, updates: Partia
   await updateDoc(doc(db, 'cancellations', cancellationId), updates);
 };
 
+// Legacy compatibility functions
+export const getPilots = async () => {
+  const staff = await getStaff();
+  return staff.filter(s => s.role === 'pilot').map(s => ({
+    ...s,
+    pilotCode: generatePilotCode(s.location),
+    totalOrders: 0,
+    isVerified: true,
+    totalEarnings: 0,
+    amountPaid: 0,
+    remainingDues: 0,
+    registeredDate: s.joinedAt,
+    specialization: s.skills || [],
+    phoneNumber: '', // Will need to be added from user profile
+    email: '', // Will need to be added from user profile
+    city: s.location,
+    state: '',
+    experience: ''
+  }));
+};
+
+export const getEditors = async () => {
+  const staff = await getStaff();
+  return staff.filter(s => s.role === 'editor').map(s => ({
+    ...s,
+    editorCode: generateEditorCode(),
+    totalOrders: 0,
+    isVerified: true,
+    specialization: s.skills || [],
+    totalEarnings: 0,
+    amountPaid: 0,
+    remainingDues: 0,
+    registeredDate: s.joinedAt,
+    phoneNumber: '', // Will need to be added from user profile
+    email: '', // Will need to be added from user profile
+    city: s.location,
+    experience: ''
+  }));
+};
+
+export const createPilot = async (pilotData: any) => {
+  return await createStaff({
+    userId: pilotData.userId || '',
+    name: pilotData.name,
+    role: 'pilot',
+    location: pilotData.city || pilotData.location,
+    skills: [],
+    portfolio: [],
+    availability: 'full-time',
+    status: pilotData.status || 'active'
+  });
+};
+
+export const createEditor = async (editorData: any) => {
+  return await createStaff({
+    userId: editorData.userId || '',
+    name: editorData.name,
+    role: 'editor',
+    location: editorData.city || editorData.location,
+    skills: editorData.specialization || [],
+    portfolio: [],
+    availability: 'full-time',
+    status: editorData.status || 'active'
+  });
+};
+
+export const updatePilot = async (pilotId: string, updates: any) => {
+  const staffUpdates: Partial<Staff> = {
+    name: updates.name,
+    location: updates.location || updates.city,
+    status: updates.status
+  };
+  await updateDoc(doc(db, 'staff', pilotId), staffUpdates);
+};
+
+export const updateEditor = async (editorId: string, updates: any) => {
+  const staffUpdates: Partial<Staff> = {
+    name: updates.name,
+    location: updates.location || updates.city,
+    skills: updates.specialization,
+    status: updates.status
+  };
+  await updateDoc(doc(db, 'staff', editorId), staffUpdates);
+};
+
+export const deletePilot = async (pilotId: string) => {
+  await deleteDoc(doc(db, 'staff', pilotId));
+};
+
+export const deleteEditor = async (editorId: string) => {
+  await deleteDoc(doc(db, 'staff', editorId));
+};
+
+// Legacy application functions
+export const getPilotApplications = async () => {
+  const staffApps = await getStaffApplications();
+  return staffApps.filter(app => app.role === 'pilot').map(app => ({
+    id: app.id,
+    name: app.name,
+    phoneNumber: app.phone,
+    email: app.email,
+    city: app.location,
+    experience: app.skills.join(', '),
+    appliedDate: app.createdAt,
+    status: app.status as any,
+    referralCode: app.referralCode,
+    adminComments: app.adminComments
+  }));
+};
+
+export const getEditorApplications = async () => {
+  const staffApps = await getStaffApplications();
+  return staffApps.filter(app => app.role === 'editor').map(app => ({
+    id: app.id,
+    name: app.name,
+    phoneNumber: app.phone,
+    email: app.email,
+    city: app.location,
+    experience: app.skills.join(', '),
+    specialization: app.skills,
+    appliedDate: app.createdAt,
+    status: app.status as any,
+    portfolioLink: app.portfolio?.[0],
+    adminComments: app.adminComments
+  }));
+};
+
+export const updatePilotApplication = async (applicationId: string, updates: any) => {
+  await updateStaffApplication(applicationId, {
+    status: updates.status,
+    adminComments: updates.adminComments,
+    reviewedBy: 'admin',
+    reviewedAt: new Date()
+  });
+};
+
+export const updateEditorApplication = async (applicationId: string, updates: any) => {
+  await updateStaffApplication(applicationId, {
+    status: updates.status,
+    adminComments: updates.adminComments,
+    reviewedBy: 'admin',
+    reviewedAt: new Date()
+  });
+};
+
+export const deletePilotApplication = async (applicationId: string) => {
+  await deleteDoc(doc(db, 'staffApplications', applicationId));
+};
+
+export const deleteEditorApplication = async (applicationId: string) => {
+  await deleteDoc(doc(db, 'staffApplications', applicationId));
+};
+
+export const deleteReferralApplication = async (applicationId: string) => {
+  await deleteDoc(doc(db, 'referralApplications', applicationId));
+};
+
 // Utility functions
 export const generateOrderID = () => {
   const timestamp = Date.now().toString();
@@ -536,7 +559,7 @@ export const generateOrderID = () => {
 export const generatePilotCode = (city: string) => {
   const cityCode = city.substring(0, 3).toUpperCase();
   const randomNum = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-  return `${cityCode}${randomNum}`;
+  return `PIL${cityCode}${randomNum}`;
 };
 
 export const generateEditorCode = () => {
@@ -579,27 +602,14 @@ export const subscribeToOrders = (callback: (orders: Order[]) => void) => {
   });
 };
 
-export const subscribeToInquiries = (callback: (inquiries: Inquiry[]) => void) => {
-  const q = query(collection(db, 'inquiries'), orderBy('createdAt', 'desc'));
+export const subscribeToApplications = (callback: (applications: any[]) => void) => {
+  const q = query(collection(db, 'clientApplications'), orderBy('createdAt', 'desc'));
   return onSnapshot(q, (querySnapshot) => {
-    const inquiries = querySnapshot.docs.map(doc => ({
+    const applications = querySnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data(),
       createdAt: doc.data().createdAt?.toDate() || new Date(),
-    })) as Inquiry[];
-    callback(inquiries);
-  });
-};
-
-export const subscribeToVideoReviews = (callback: (reviews: VideoReview[]) => void) => {
-  const q = query(collection(db, 'videoReviews'), orderBy('createdAt', 'desc'));
-  return onSnapshot(q, (querySnapshot) => {
-    const reviews = querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-      createdAt: doc.data().createdAt?.toDate() || new Date(),
-      updatedAt: doc.data().updatedAt?.toDate() || new Date(),
-    })) as VideoReview[];
-    callback(reviews);
+    }));
+    callback(applications);
   });
 };
