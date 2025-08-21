@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import LoginForm from '../../components/auth/LoginForm';
-import ApplicationForm from '../../components/auth/ApplicationForm';
+import RoleBasedLogin from '../../components/auth/RoleBasedLogin';
+import ApplicationHub from '../../components/auth/ApplicationHub';
 
 export default function AuthPage() {
   const [mode, setMode] = useState<'login' | 'apply'>('login');
@@ -12,9 +12,9 @@ export default function AuthPage() {
   return (
     <>
       {mode === 'login' ? (
-        <LoginForm onToggleMode={toggleMode} />
+        <RoleBasedLogin onToggleMode={toggleMode} />
       ) : (
-        <ApplicationForm onToggleMode={toggleMode} />
+        <ApplicationHub onToggleMode={toggleMode} />
       )}
     </>
   );

@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import AuthPage from './pages/auth/AuthPage';
+import PendingApproval from './pages/PendingApproval';
 import Unauthorized from './pages/Unauthorized';
 import LoadingSpinner from './components/ui/LoadingSpinner';
 
@@ -25,19 +26,46 @@ function AppRoutes() {
     );
   }
 
+  // Redirect based on user type and status
+  const getDefaultRoute = () => {
+    if (!user) return '/login';
+    
+    if (user.status === 'pending') return '/pending-approval';
+    
+    switch (user.userType) {
+      case 'admin': return '/admin';
+      case 'client': return '/client';
+      case 'pilot': return '/pilot';
+      case 'editor': return '/editor';
+      default: return '/login';
+    }
+  };
+
   return (
     <Routes>
       {/* Public Routes */}
       <Route 
         path="/login" 
-        element={user ? <Navigate to={`/${user.role}`} replace /> : <AuthPage />} 
+        element={user ? <Navigate to={getDefaultRoute()} replace /> : <AuthPage />} 
+      />
+      
+      {/* Pending Approval */}
+      <Route
+        path="/pending-approval"
+        element={
+          user && user.status === 'pending' ? (
+            <PendingApproval />
+          ) : (
+            <Navigate to={getDefaultRoute()} replace />
+          )
+        }
       />
       
       {/* Protected Routes */}
       <Route
         path="/admin/*"
         element={
-          <ProtectedRoute allowedRoles={['admin']}>
+          <ProtectedRoute allowedUserTypes={['admin']}>
             <AdminApp />
           </ProtectedRoute>
         }
@@ -46,7 +74,7 @@ function AppRoutes() {
       <Route
         path="/pilot"
         element={
-          <ProtectedRoute allowedRoles={['pilot']}>
+          <ProtectedRoute allowedUserTypes={['pilot']}>
             <PilotDashboard />
           </ProtectedRoute>
         }
@@ -55,7 +83,7 @@ function AppRoutes() {
       <Route
         path="/editor"
         element={
-          <ProtectedRoute allowedRoles={['editor']}>
+          <ProtectedRoute allowedUserTypes={['editor']}>
             <EditorDashboard />
           </ProtectedRoute>
         }
@@ -64,7 +92,7 @@ function AppRoutes() {
       <Route
         path="/client"
         element={
-          <ProtectedRoute allowedRoles={['client']}>
+          <ProtectedRoute allowedUserTypes={['client']}>
             <ClientDashboard />
           </ProtectedRoute>
         }
@@ -75,13 +103,7 @@ function AppRoutes() {
       {/* Default Redirects */}
       <Route 
         path="/" 
-        element={
-          user ? (
-            <Navigate to={`/${user.role}`} replace />
-          ) : (
-            <Navigate to="/login" replace />
-          )
-        } 
+        element={<Navigate to={getDefaultRoute()} replace />} 
       />
       
       {/* Catch all */}

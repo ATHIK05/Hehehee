@@ -5,10 +5,15 @@ import LoadingSpinner from '../ui/LoadingSpinner';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  allowedRoles?: ('admin' | 'client' | 'pilot' | 'editor')[];
+  allowedUserTypes?: ('admin' | 'client' | 'pilot' | 'editor')[];
+  requireActive?: boolean;
 }
 
-export default function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
+export default function ProtectedRoute({ 
+  children, 
+  allowedUserTypes, 
+  requireActive = true 
+}: ProtectedRouteProps) {
   const { user, loading } = useAuth();
 
   if (loading) {
@@ -23,7 +28,11 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
     return <Navigate to="/login" replace />;
   }
 
-  if (allowedRoles && !allowedRoles.includes(user.role)) {
+  if (requireActive && user.status !== 'active') {
+    return <Navigate to="/pending-approval" replace />;
+  }
+
+  if (allowedUserTypes && !allowedUserTypes.includes(user.userType)) {
     return <Navigate to="/unauthorized" replace />;
   }
 
