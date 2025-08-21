@@ -243,6 +243,14 @@ export const getReferrals = async (): Promise<Referral[]> => {
   })) as Referral[];
 };
 
+export const updateReferral = async (referralId: string, updates: Partial<Referral>) => {
+  await updateDoc(doc(db, 'referrals', referralId), updates);
+};
+
+export const deleteReferral = async (referralId: string) => {
+  await deleteDoc(doc(db, 'referrals', referralId));
+};
+
 // Payments
 export const createPayment = async (paymentData: Omit<Payment, 'id' | 'createdAt'>) => {
   const docRef = await addDoc(collection(db, 'payments'), {
