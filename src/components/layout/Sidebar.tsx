@@ -14,7 +14,7 @@ import {
   ChevronRight,
   Database,
   UserPlus,
-  PlusCircle
+  PlusCircle,
   FileText,
   ClipboardList,
   UserCheck
